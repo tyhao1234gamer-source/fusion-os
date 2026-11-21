@@ -1,0 +1,57 @@
+name: Boot test an existing Fusion OS image
+
+# Re-runs the QEMU boot tests on an image a previous build already produced,
+# without recompiling anything.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Run id of the build that produced the image"
+        required: true
+      edition:
+        description: "base | gaming | full"
+        default: base
+      firmware:
+        description: "Space-separated: uefi bios uefi32"
+        default: "uefi bios"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: fusion
+      - uses: actions/download-artifact@v4
+        with:
+          name: fusion-os-from-source-${{ inputs.edition }}
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: img
+      - name: Install QEMU + firmware
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf mtools
+          sudo apt-get install -y --no-install-recommends ovmf-ia32 || true
+          ls /usr/share/OVMF/
+          (cd img && sha256sum -c SHA256SUMS.txt)
+      - name: Boot tests
+        shell: bash
+        run: |
+          mkdir -p reports; rc=0
+          for fw in ${{ inputs.firmware }}; do
+            cp img/fusion-os.img "t-$fw.img"
+            bash fusion/os-source/ci/boot-test.sh "$fw" "t-$fw.img" FUSION_BOOT_OK "reports/serial-$fw.log" || rc=1
+          done
+          exit $rc
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: boot-test-rerun-${{ inputs.edition }}-${{ inputs.run_id }}
+          path: reports/
