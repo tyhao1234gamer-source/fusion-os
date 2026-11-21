@@ -35,6 +35,19 @@ sed -i 's/^iso_application=.*/iso_application="Fusion OS Gaming"/' "$P/profilede
 echo ">> appending Fusion packages to the package list"
 { echo; echo "# --- Fusion additions ---"; cat "$OVERLAY/packages.x86_64"; } >> "$P/packages.x86_64"
 
+echo ">> enabling [multilib] repo (needed for steam, wine and all lib32-* packages)"
+if grep -q '^\[multilib\]' "$P/pacman.conf"; then
+    echo "   already enabled"
+else
+    # Uncomment the standard commented multilib block:
+    #   #[multilib]            ->  [multilib]
+    #   #Include = .../mirrorlist -> Include = .../mirrorlist
+    sed -i 's/^#\[multilib\]/[multilib]/' "$P/pacman.conf"
+    sed -i '/^\[multilib\]/{n;s/^#Include/Include/}' "$P/pacman.conf"
+    grep -q '^\[multilib\]' "$P/pacman.conf" && echo "   enabled" \
+        || echo "   ! could not enable multilib automatically; check pacman.conf"
+fi
+
 echo ">> overlaying airootfs files (units, skel, session, configs)"
 cp -r "$OVERLAY/etc" "$OVERLAY/usr" "$P/airootfs/"
 
