@@ -1,0 +1,7 @@
+# Tools are generated into the overlay at build time by
+# scripts/install-fusion-userspace.sh -- never commit them.
+br-external/board/fusion/rootfs-overlay/usr/
+br-external/board/fusion/rootfs-overlay/etc/sudoers.d/
+br-external/board/fusion/rootfs-overlay/etc/sysctl.d/
+br-external/board/fusion/rootfs-overlay/etc/systemd/zram-generator.conf
+br-external/board/fusion/rootfs-overlay/etc/environment.d/

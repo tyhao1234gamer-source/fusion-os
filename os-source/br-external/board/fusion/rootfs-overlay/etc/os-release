@@ -1,0 +1,9 @@
+NAME="Fusion OS"
+PRETTY_NAME="Fusion OS (built from source)"
+ID=fusion
+ID_LIKE=
+VERSION="0.1"
+VERSION_ID="0.1"
+BUILD_ID="from-source"
+HOME_URL="https://github.com/tyhao1234gamer-source/fusion-os"
+ANSI_COLOR="1;35"

@@ -1,0 +1,2 @@
+# Fusion external tree: no custom Config.in options (tools come via the
+# rootfs overlay, generated at build time from the repo installer).

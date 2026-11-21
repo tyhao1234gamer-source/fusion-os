@@ -1,0 +1,75 @@
+name: Build Fusion OS from source (Buildroot)
+
+# Compiles Fusion OS entirely from upstream source with Buildroot: the
+# cross-toolchain, glibc, the Linux kernel (our config), systemd and the base
+# userland are all built from source on GitHub's runners. Produces a
+# USB-bootable UEFI disk image (fusion-os.img). This is the "own OS" build --
+# not a repackaged distro. It is slow (toolchain + kernel + systemd from
+# scratch): expect 60-120 minutes.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "src-v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Checkout Fusion repo
+        uses: actions/checkout@v4
+        with:
+          path: fusion
+
+      - name: Install Buildroot host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gcc g++ make file wget cpio unzip rsync bc \
+            bzip2 perl git python3 libncurses-dev mtools dosfstools \
+            parted util-linux
+
+      - name: Generate the Fusion tools into the rootfs overlay
+        run: |
+          chmod +x fusion/scripts/*.sh fusion/os-source/br-external/board/fusion/*.sh || true
+          OVERLAY=fusion/os-source/br-external/board/fusion/rootfs-overlay
+          fusion/scripts/install-fusion-userspace.sh "$OVERLAY"
+          echo "=== overlay /usr/bin ===" && ls "$OVERLAY/usr/bin"
+
+      - name: Clone Buildroot (2025.02 LTS)
+        run: git clone --depth 1 --branch 2025.02.x https://github.com/buildroot/buildroot.git
+
+      - name: Configure Buildroot with the Fusion external tree
+        run: |
+          make -C buildroot \
+            BR2_EXTERNAL="$GITHUB_WORKSPACE/fusion/os-source/br-external" \
+            O="$GITHUB_WORKSPACE/output" \
+            fusion_x86_64_defconfig
+
+      - name: Build from source (toolchain + kernel + systemd + userland)
+        run: |
+          make -C buildroot O="$GITHUB_WORKSPACE/output" 2>&1 | tail -n 4000
+
+      - name: Collect image + checksum
+        run: |
+          cd "$GITHUB_WORKSPACE/output/images"
+          ls -lh
+          sha256sum fusion-os.img > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Upload Fusion OS image
+        uses: actions/upload-artifact@v4
+        with:
+          name: fusion-os-from-source
+          path: |
+            output/images/fusion-os.img
+            output/images/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: On failure, surface the end of the build log
+        if: failure()
+        run: |
+          echo "Build failed. Last config:"
+          cat "$GITHUB_WORKSPACE/output/.config" 2>/dev/null | grep -E '^BR2_(TOOLCHAIN|INIT|PACKAGE_SYSTEMD|LINUX_KERNEL_CUSTOM_VERSION)' | head
