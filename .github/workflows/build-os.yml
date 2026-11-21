@@ -1,29 +1,47 @@
 name: Build Fusion OS from source (Buildroot)
 
 # Compiles Fusion OS entirely from upstream source with Buildroot: the
-# cross-toolchain, glibc, the Linux kernel (our config), systemd and the base
-# userland are all built from source on GitHub's runners. Produces a
-# USB-bootable UEFI disk image (fusion-os.img). This is the "own OS" build --
-# not a repackaged distro. It is slow (toolchain + kernel + systemd from
-# scratch): expect 60-120 minutes.
+# cross-toolchain, glibc, the Linux kernel (our config), systemd and the whole
+# userland are built from source on GitHub's runners. Produces a USB-bootable
+# UEFI disk image (fusion-os.img). Not a repackaged distro.
+#
+# Editions (layers are concatenated; last assignment wins):
+#   base   = fusion_x86_64_defconfig
+#   gaming = base + gaming.fragment   (Mesa/Vulkan/Wayland/audio)
+#   full   = gaming + full.fragment   (Wi-Fi/NetworkManager, Flatpak, Steam session)
+#
+# Sources and ccache are cached between runs, so only the first build of an
+# edition pays the full compile time.
 
 on:
   workflow_dispatch:
     inputs:
       edition:
-        description: "base = boots + Fusion tools; gaming = + Mesa/Vulkan/Wayland/audio"
+        description: "base | gaming | full"
         type: choice
-        options: [base, gaming]
+        options: [base, gaming, full]
         default: base
   push:
     tags:
       - "src-v*"
 
+env:
+  EDITION: ${{ inputs.edition || 'base' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 355
     steps:
+      - name: Free disk space on the runner
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+                      /usr/share/swift || true
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          df -h / | tail -1
+
       - name: Checkout Fusion repo
         uses: actions/checkout@v4
         with:
@@ -39,7 +57,8 @@ jobs:
 
       - name: Generate the Fusion tools into the rootfs overlay
         run: |
-          chmod +x fusion/scripts/*.sh fusion/os-source/br-external/board/fusion/*.sh || true
+          chmod +x fusion/scripts/*.sh fusion/os-source/br-external/board/fusion/*.sh \
+                   fusion/os-source/br-external/board/fusion/overlay-full/usr/bin/* || true
           OVERLAY=fusion/os-source/br-external/board/fusion/rootfs-overlay
           fusion/scripts/install-fusion-userspace.sh "$OVERLAY"
           echo "=== overlay /usr/bin ===" && ls "$OVERLAY/usr/bin"
@@ -47,26 +66,62 @@ jobs:
       - name: Clone Buildroot (2025.02 LTS)
         run: git clone --depth 1 --branch 2025.02.x https://github.com/buildroot/buildroot.git
 
+      - name: Compose the edition's defconfig
+        run: |
+          C="$GITHUB_WORKSPACE/fusion/os-source/br-external/configs"
+          case "$EDITION" in
+            base)   cat "$C/fusion_x86_64_defconfig" ;;
+            gaming) cat "$C/fusion_x86_64_defconfig" "$C/gaming.fragment" ;;
+            full)   cat "$C/fusion_x86_64_defconfig" "$C/gaming.fragment" "$C/full.fragment" ;;
+            *) echo "unknown edition $EDITION"; exit 1 ;;
+          esac > "$C/fusion_ci_defconfig"
+          # CI-only: compiler cache + shared download dir (both cached below).
+          {
+            echo 'BR2_CCACHE=y'
+            echo "BR2_CCACHE_DIR=\"$GITHUB_WORKSPACE/ccache\""
+            echo "BR2_DL_DIR=\"$GITHUB_WORKSPACE/dl\""
+          } >> "$C/fusion_ci_defconfig"
+          echo "edition=$EDITION ($(grep -c '^BR2_' "$C/fusion_ci_defconfig") options)"
+
+      # Restore/save are split so the caches are kept even when the build
+      # fails -- that is exactly when the next iteration needs them.
+      - name: Restore source downloads cache
+        uses: actions/cache/restore@v4
+        with:
+          path: dl
+          key: br-dl-${{ env.EDITION }}-${{ github.run_id }}
+          restore-keys: |
+            br-dl-${{ env.EDITION }}-
+            br-dl-
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ccache
+          key: br-ccache-${{ env.EDITION }}-${{ github.run_id }}
+          restore-keys: |
+            br-ccache-${{ env.EDITION }}-
+            br-ccache-
+
       - name: Configure Buildroot with the Fusion external tree
         run: |
-          EXT="$GITHUB_WORKSPACE/fusion/os-source/br-external"
-          DEFCONFIG=fusion_x86_64_defconfig
-          if [ "${{ inputs.edition }}" = "gaming" ]; then
-            cat "$EXT/configs/fusion_x86_64_defconfig" "$EXT/configs/gaming.fragment" \
-              > "$EXT/configs/fusion_x86_64_gaming_defconfig"
-            DEFCONFIG=fusion_x86_64_gaming_defconfig
-          fi
-          echo "edition=${{ inputs.edition || 'base' }} defconfig=$DEFCONFIG"
-          make -C buildroot BR2_EXTERNAL="$EXT" O="$GITHUB_WORKSPACE/output" "$DEFCONFIG"
+          make -C buildroot \
+            BR2_EXTERNAL="$GITHUB_WORKSPACE/fusion/os-source/br-external" \
+            O="$GITHUB_WORKSPACE/output" fusion_ci_defconfig
 
       - name: Validate that Buildroot kept every requested option
         run: |
           EXT="$GITHUB_WORKSPACE/fusion/os-source/br-external"
-          DEF="$EXT/configs/fusion_x86_64_defconfig"
-          [ "${{ inputs.edition }}" = "gaming" ] && DEF="$EXT/configs/fusion_x86_64_gaming_defconfig"
-          python3 fusion/os-source/validate-config.py "$DEF" "$GITHUB_WORKSPACE/output/.config" "$EXT"
+          python3 fusion/os-source/validate-config.py \
+            "$EXT/configs/fusion_ci_defconfig" "$GITHUB_WORKSPACE/output/.config" "$EXT"
 
-      - name: Build from source (toolchain + kernel + systemd + userland)
+      - name: Download all sources first (fail fast on a bad URL or hash)
+        shell: bash
+        run: |
+          set -o pipefail
+          make -C buildroot O="$GITHUB_WORKSPACE/output" source 2>&1 | tail -n 200
+
+      - name: Build from source
         shell: bash
         run: |
           # pipefail: a failing make must fail this step (tail alone hides it).
@@ -82,15 +137,30 @@ jobs:
       - name: Upload Fusion OS image
         uses: actions/upload-artifact@v4
         with:
-          name: fusion-os-from-source-${{ inputs.edition || 'base' }}
+          name: fusion-os-from-source-${{ env.EDITION }}
           path: |
             output/images/fusion-os.img
             output/images/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
 
-      - name: On failure, surface the end of the build log
+      - name: Save source downloads cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: dl
+          key: br-dl-${{ env.EDITION }}-${{ github.run_id }}
+
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ccache
+          key: br-ccache-${{ env.EDITION }}-${{ github.run_id }}
+
+      - name: On failure, show which package broke
         if: failure()
         run: |
-          echo "Build failed. Last config:"
-          cat "$GITHUB_WORKSPACE/output/.config" 2>/dev/null | grep -E '^BR2_(TOOLCHAIN|INIT|PACKAGE_SYSTEMD|LINUX_KERNEL_CUSTOM_VERSION)' | head
+          df -h / | tail -1
+          echo "Most recently touched build dirs:"
+          ls -1t "$GITHUB_WORKSPACE/output/build" 2>/dev/null | head -5

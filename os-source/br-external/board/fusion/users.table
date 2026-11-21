@@ -1,0 +1,5 @@
+# Buildroot users table (makeusers format):
+# username uid group gid password home shell groups comment
+# '-' password = locked (no password login); the session auto-logs in.
+# Steam refuses to run as root, so the gaming session runs as this user.
+fusion -1 fusion -1 - /home/fusion /bin/sh video,input,audio,render,wheel Fusion session user

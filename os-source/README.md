@@ -44,7 +44,8 @@ make -C buildroot O="$PWD/output"
 | Edition | What it adds | Defconfig |
 |---|---|---|
 | `base` | boots from USB on any UEFI PC, Fusion tools, setup wizard | `fusion_x86_64_defconfig` |
-| `gaming` | + Mesa 24 (OpenGL: AMD radeonsi, Intel iris, nouveau), Vulkan (Intel ANV, lavapipe), GPU firmware, Wayland + `cage` fullscreen session, SDL2, PipeWire audio | base + `gaming.fragment` (combined at build time) |
+| `gaming` | + Mesa 24 (OpenGL: AMD radeonsi, Intel iris, nouveau), Vulkan (Intel ANV, lavapipe), GPU firmware, Wayland + `cage` fullscreen session, SDL2, PipeWire audio | base + `gaming.fragment` |
+| `full` | + NetworkManager & Wi-Fi firmware (setup-screen Wi-Fi), **Flatpak** (our own ostree/appstream/flatpak packages), Xwayland, unprivileged `fusion` session that boots into **Steam Big Picture**; Steam, Discord, Epic (Heroic) and Firefox come from Flathub, root partition grows to the whole disk | gaming + `full.fragment` |
 
 Pick the edition in the workflow's **Run workflow** dialog.
 
@@ -54,11 +55,12 @@ as a broken system an hour later).
 
 ## Known hard limits of the from-source edition (honest)
 
-- **Steam**: the Steam client and most of Proton need 32-bit (i386) libraries
-  installed next to the 64-bit ones ("multilib"). Buildroot builds a single
-  architecture, and it does not package Flatpak (Steam's Flatpak brings its
-  own 32-bit runtime). So Steam does **not** run on this edition yet. Paths
-  forward: package Flatpak + OSTree ourselves, or build a second i386 sysroot.
+- **Steam**: the client and most of Proton need 32-bit (i386) libraries next
+  to the 64-bit ones; Buildroot builds one architecture and ships no Flatpak.
+  The `full` edition solves this with **our own Buildroot packages** for
+  OSTree 2026.7, AppStream 1.0.6 (+ a cross-compile patch) and Flatpak 1.16.6:
+  Steam's Flatpak brings its own 32-bit runtime. Apps are fetched from Flathub
+  on first boot (per user, no account), not baked into the image.
 - **AMD Vulkan (RADV)** is not exposed by Buildroot's Mesa package; AMD GPUs
   get OpenGL now, Vulkan needs an extra package override.
 - **NVIDIA**: Buildroot ships no NVIDIA firmware, so NVIDIA cards run nouveau

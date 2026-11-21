@@ -1,0 +1,26 @@
+config BR2_PACKAGE_OSTREE
+	bool "ostree"
+	depends on BR2_TOOLCHAIN_USES_GLIBC # libglnx assumptions
+	depends on !BR2_STATIC_LIBS
+	depends on BR2_TOOLCHAIN_HAS_THREADS
+	depends on BR2_USE_MMU
+	depends on BR2_USE_WCHAR
+	select BR2_PACKAGE_LIBGLIB2
+	select BR2_PACKAGE_XZ
+	select BR2_PACKAGE_ZLIB
+	select BR2_PACKAGE_E2FSPROGS
+	select BR2_PACKAGE_LIBGPGME
+	select BR2_PACKAGE_LIBCURL
+	select BR2_PACKAGE_LIBARCHIVE
+	select BR2_PACKAGE_UTIL_LINUX
+	select BR2_PACKAGE_UTIL_LINUX_LIBMOUNT
+	help
+	  libostree: a library and tools for versioned, content-addressed
+	  filesystem trees. Flatpak uses it to store and deploy apps.
+
+	  https://ostreedev.github.io/ostree/
+
+comment "ostree needs a glibc toolchain w/ wchar, threads, dynamic library"
+	depends on BR2_USE_MMU
+	depends on !BR2_TOOLCHAIN_USES_GLIBC || !BR2_USE_WCHAR || \
+		!BR2_TOOLCHAIN_HAS_THREADS || BR2_STATIC_LIBS

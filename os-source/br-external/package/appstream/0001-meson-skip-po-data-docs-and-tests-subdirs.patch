@@ -1,0 +1,28 @@
+From: Fusion OS <dev@fusion.os>
+Subject: [PATCH] meson: skip po, data, docs and tests subdirs
+
+When cross-compiling, data/ requires a native appstreamcli and docs/
+requires docbook stylesheets. None of them are needed on the target.
+
+Signed-off-by: Fusion OS <dev@fusion.os>
+---
+diff --git a/meson.build b/meson.build
+index ee5b179..8e381ee 100644
+--- a/meson.build
++++ b/meson.build
+@@ -223,11 +223,11 @@ if get_option('compose')
+     subdir('compose/')
+ endif
+ subdir('tools/')
+-subdir('po/')
+-subdir('data/')
++# subdir('po/')  # disabled by Fusion OS: needs a native appstreamcli/docbook when cross-compiling
++# subdir('data/')  # disabled by Fusion OS: needs a native appstreamcli/docbook when cross-compiling
+ subdir('contrib/')
+-subdir('docs/')
+-subdir('tests/')
++# subdir('docs/')  # disabled by Fusion OS: needs a native appstreamcli/docbook when cross-compiling
++# subdir('tests/')  # disabled by Fusion OS: needs a native appstreamcli/docbook when cross-compiling
+ if get_option('qt')
+     subdir('qt/')
+ endif

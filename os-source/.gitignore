@@ -6,3 +6,4 @@ br-external/board/fusion/rootfs-overlay/etc/sysctl.d/
 br-external/board/fusion/rootfs-overlay/etc/systemd/zram-generator.conf
 br-external/board/fusion/rootfs-overlay/etc/environment.d/
 br-external/configs/fusion_x86_64_gaming_defconfig
+br-external/configs/fusion_ci_defconfig

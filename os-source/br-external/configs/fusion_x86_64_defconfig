@@ -20,6 +20,19 @@ BR2_PACKAGE_SYSTEMD_RESOLVED=y
 BR2_TARGET_GENERIC_HOSTNAME="fusion"
 BR2_TARGET_GENERIC_ISSUE="Fusion OS (built from source)"
 BR2_TARGET_GENERIC_ROOT_PASSWD="fusion"
+BR2_TARGET_GENERIC_GETTY_PORT="tty1"
+BR2_ROOTFS_USERS_TABLES="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/users.table"
+# Services the first-run setup wizard drives: timedatectl, localectl, logins.
+BR2_PACKAGE_SYSTEMD_TIMEDATED=y
+BR2_PACKAGE_SYSTEMD_TIMESYNCD=y
+BR2_PACKAGE_SYSTEMD_LOCALED=y
+BR2_PACKAGE_SYSTEMD_LOGIND=y
+# Data those services need: keymaps, time zones, locales.
+BR2_PACKAGE_KBD=y
+BR2_TARGET_TZ_INFO=y
+BR2_GENERATE_LOCALE="pt_PT.UTF-8 pt_BR.UTF-8 es_ES.UTF-8 en_US.UTF-8 en_GB.UTF-8 fr_FR.UTF-8 de_DE.UTF-8"
+# TLS trust store (Flathub, Steam, browsers).
+BR2_PACKAGE_CA_CERTIFICATES=y
 
 # --- Linux kernel: our config fragment on top of the arch default ---
 BR2_LINUX_KERNEL=y
@@ -49,7 +62,7 @@ BR2_TARGET_GRUB2=y
 BR2_TARGET_GRUB2_X86_64_EFI=y
 
 # --- Rootfs overlay + post scripts (identity, image assembly) ---
-BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/rootfs-overlay"
+BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/rootfs-overlay $(BR2_EXTERNAL_FUSION_PATH)/board/fusion/overlay-base"
 BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/post-build.sh"
 BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/post-image.sh"
 BR2_ROOTFS_POST_SCRIPT_ARGS="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/genimage.cfg"
