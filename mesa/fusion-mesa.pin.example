@@ -1,0 +1,16 @@
+# Example pacman pinning for Baikal / 5.4.x (Mesa must stay <= 25.1).
+# Written to /etc/pacman.conf by installer/fusion-install.sh when
+# hardware/fusion-detect reports mesa_pin = "<=25.1".
+#
+# 1) Prefer the community PS4 repo of patched, known-good drivers:
+#
+#   [ps4]
+#   SigLevel = Never
+#   Server = https://psxita.it/repo-testing
+#
+# 2) Never let a routine upgrade pull a Mesa newer than the ceiling:
+#
+#   IgnorePkg = mesa lib32-mesa libdrm lib32-libdrm vulkan-radeon lib32-vulkan-radeon
+#
+# On Aeolia/Belize (mesa_pin = "latest") this file is NOT installed; the system
+# tracks mesa-git from the PS4 repo instead.

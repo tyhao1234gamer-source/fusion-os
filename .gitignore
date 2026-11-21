@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.tmp
+fusion-image/
+linux-ps4/
+*.bak
+# Build artifacts and local state
+bzImage
+initramfs*
+*.tar.xz
+.fusion-home/

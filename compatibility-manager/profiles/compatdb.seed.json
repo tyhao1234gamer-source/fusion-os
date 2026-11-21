@@ -1,0 +1,48 @@
+{
+  "_comment": "Curated PS4 Fusion OS compatibility seed. Statuses reflect the realistic ceiling of the 8-core Jaguar / GCN Liverpool-Neo. Every entry is a starting hint, NOT a guarantee; measured_status on a profile is only ever set by a real run on target.",
+  "celeste": {
+    "title": "Celeste",
+    "status": "playable",
+    "settings": {"d3d": "dx11", "dxvk": "2.x", "note": "light 2D title; ideal fit"}
+  },
+  "hollow knight": {
+    "title": "Hollow Knight",
+    "status": "playable",
+    "settings": {"d3d": "dx11", "dxvk": "2.x", "note": "runs well; cap FPS to steady frametime"}
+  },
+  "stardew valley": {
+    "title": "Stardew Valley",
+    "status": "playable",
+    "settings": {"d3d": "dx11", "dxvk": "2.x"}
+  },
+  "undertale": {
+    "title": "Undertale",
+    "status": "playable",
+    "settings": {"d3d": "dx9", "dxvk": "1.10.x"}
+  },
+  "portal 2": {
+    "title": "Portal 2",
+    "status": "runnable",
+    "settings": {"d3d": "dx9", "dxvk": "2.x", "note": "native Linux build preferred over Proton"}
+  },
+  "skyrim": {
+    "title": "The Elder Scrolls V: Skyrim",
+    "status": "runnable",
+    "settings": {"d3d": "dx9", "dxvk": "2.x", "note": "LE/SE playable at reduced settings; CPU-bound in cities"}
+  },
+  "doom 2016": {
+    "title": "DOOM (2016)",
+    "status": "blocked",
+    "settings": {"d3d": "vulkan", "note": "idTech6 requires features/throughput beyond the Jaguar+Liverpool for a playable result"}
+  },
+  "fortnite": {
+    "title": "Fortnite",
+    "status": "blocked",
+    "settings": {"note": "kernel-level anti-cheat (BattlEye/EAC) cannot run outside Orbis"}
+  },
+  "cyberpunk 2077": {
+    "title": "Cyberpunk 2077",
+    "status": "blocked",
+    "settings": {"note": "AVX requirement and CPU/GPU demand far exceed PS4 Linux ceiling"}
+  }
+}

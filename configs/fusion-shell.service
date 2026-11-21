@@ -1,0 +1,23 @@
+# /etc/systemd/system/fusion-shell.service
+# Boot straight into the Gaming Shell on tty1 -- no desktop environment.
+# This replaces a display-manager: minimal idle footprint, controller-first.
+[Unit]
+Description=PS4 Fusion OS Gaming Shell
+After=systemd-user-sessions.service plymouth-quit-wait.service
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/fusion-shell
+Restart=always
+# Run on tty1 so the shell owns the screen.
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+User=fusion
+
+[Install]
+WantedBy=multi-user.target
