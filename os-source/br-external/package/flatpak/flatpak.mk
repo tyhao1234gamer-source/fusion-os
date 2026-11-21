@@ -15,6 +15,7 @@ FLATPAK_DEPENDENCIES = \
 	host-libglib2 \
 	host-pkgconf \
 	host-python3 \
+	host-python-pyparsing \
 	appstream \
 	bubblewrap \
 	gdk-pixbuf \
