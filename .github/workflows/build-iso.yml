@@ -33,6 +33,9 @@ jobs:
               OUT=/repo/out /repo/iso/build-iso.sh
             '
 
+      - name: Fix ownership of build output
+        run: sudo chown -R "$(id -u):$(id -g)" out
+
       - name: Checksum
         run: |
           cd out && sha256sum *.iso > SHA256SUMS.txt && cat SHA256SUMS.txt
