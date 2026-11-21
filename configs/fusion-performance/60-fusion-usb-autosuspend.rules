@@ -1,0 +1,6 @@
+# /etc/udev/rules.d/60-fusion-usb-autosuspend.rules
+# Stop USB autosuspend from powering down input devices mid-game: it causes
+# controller/mouse/keyboard micro-hangs. Keep USB ports always on.
+ACTION=="add", SUBSYSTEM=="usb", TEST=="power/control", ATTR{power/control}="on"
+# Input devices specifically (HID gamepads, keyboards, mice).
+ACTION=="add", SUBSYSTEM=="usb", ATTR{bInterfaceClass}=="03", TEST=="power/control", ATTR{power/control}="on"

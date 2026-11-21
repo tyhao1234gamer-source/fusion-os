@@ -48,11 +48,14 @@ have() { command -v "$1" >/dev/null 2>&1; }
 if [ -n "$profile" ]; then
     echo ">> applying profile: $profile"
     if [ "$dry" = 0 ]; then
-        "$HERE/fusion-opt" apply "$profile" --real || echo "   (profile apply skipped)"
+        # root via scoped passwordless sudo in the autologin session; falls back
+        # to a direct call when already root (e.g. testing).
+        SUDO=""; [ "$(id -u)" != 0 ] && command -v sudo >/dev/null && SUDO="sudo -n"
+        $SUDO "$HERE/fusion-opt" apply "$profile" --real || echo "   (profile apply skipped)"
         # Vendor-aware GPU max-perf state (covers NVIDIA/Intel beyond fusion-opt's
         # amdgpu sysfs knob). Reversible with `fusion-gpu auto`.
         case "$profile" in
-            extreme|competitive|max) "$HERE/fusion-gpu" high 2>/dev/null || true;;
+            extreme|competitive|max) $SUDO "$HERE/fusion-gpu" high 2>/dev/null || true;;
         esac
     fi
 fi

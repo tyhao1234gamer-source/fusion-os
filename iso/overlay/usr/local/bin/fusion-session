@@ -8,8 +8,8 @@ set -u
 # Only auto-start the session on the primary VT; leave other TTYs as shells.
 [ "$(tty)" = "/dev/tty1" ] || exit 0
 
-# Warm, reversible performance baseline for the session.
-fusion-opt apply balanced --real 2>/dev/null || true
+# Warm, reversible performance baseline for the session (root via scoped sudo).
+sudo -n fusion-opt apply balanced --real 2>/dev/null || fusion-opt apply balanced --real 2>/dev/null || true
 
 export MESA_SHADER_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fusion/mesa"
 mkdir -p "$MESA_SHADER_CACHE_DIR"

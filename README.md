@@ -29,6 +29,23 @@ fusion-detect            # full machine report + driver/tuning plan for THIS box
 fusion-gpu high          # put the present GPU (AMD/Intel/NVIDIA) in max-perf state
 ```
 
+## First-run screen, performance baseline, preinstalled apps
+
+- **First-run setup screen** (`fusion-setup`) on first boot: region, timezone,
+  keyboard, and Wi-Fi/Ethernet. **No account** of any kind — no Microsoft-style
+  login, no cloud sign-in. Fusion auto-logs into a local session.
+- **Performance baseline** (`scripts/fusion-perf-baseline.sh`, applied at build/
+  install): removes default Linux behaviours that cost FPS (CPU watchdogs,
+  split-lock stalls, USB autosuspend hangs, boot-slowing `*-wait-online` and
+  man-db/updatedb services, journal disk writes) and adds performance sysctls,
+  BBR networking, and a tuned kernel cmdline. The one real trade-off —
+  `mitigations=off` (faster, but lowers CPU side-channel protection) — is
+  documented and one-line reversible (`fusion-perf-baseline --revert-mit`).
+- **Preinstalled apps** (launch on demand from the Gaming Shell, not during
+  setup): **Steam** (installed; you sign in only if you want — setup never asks),
+  **Discord**, **Epic via Heroic** (installed at first boot through Flatpak, since
+  Epic has no native Linux client), and **Firefox** as the browser.
+
 ## Two ways to get it onto the laptop
 
 ```bash

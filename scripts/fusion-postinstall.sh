@@ -19,6 +19,9 @@ pacman -Sy --needed --noconfirm $(grep -vE '^\s*#|^\s*$' "$REPO/iso/overlay/pack
 echo ">> installing Fusion userspace tools + configs"
 "$REPO/scripts/install-fusion-userspace.sh" "/"
 
+echo ">> applying the performance baseline (configs, service masks, kernel cmdline)"
+"$REPO/scripts/fusion-perf-baseline.sh" "/"
+
 echo ">> creating fusion user if missing"
 id fusion >/dev/null 2>&1 || useradd -m -G wheel,video,input -s /bin/bash fusion
 install -Dm644 "$REPO/iso/overlay/etc/skel/.bash_profile" /home/fusion/.bash_profile

@@ -52,6 +52,22 @@ class TestUI(unittest.TestCase):
         self.assertEqual(s.selected().title, "Hollow Knight")
 
 
+class TestApps(unittest.TestCase):
+    def test_from_apps_filters_to_installed(self):
+        from fusionshell.library import from_apps
+        # Pretend only Steam and Firefox are present.
+        present = {"steam", "firefox"}
+        apps = from_apps(check=lambda key, argv: key in present)
+        titles = {a.title for a in apps}
+        self.assertEqual(titles, {"Steam", "Firefox"})
+        self.assertTrue(all(a.source == "app" for a in apps))
+
+    def test_app_label_tag(self):
+        from fusionshell.library import from_apps
+        apps = from_apps(check=lambda key, argv: key == "discord")
+        self.assertIn("[APP] Discord", apps[0].label())
+
+
 class TestGamepad(unittest.TestCase):
     def _ev(self, etype, code, value):
         return struct.pack(gamepad._EV_FORMAT, 0, 0, etype, code, value)

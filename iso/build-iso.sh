@@ -50,6 +50,9 @@ cp "$OVERLAY/etc/skel/.bash_profile" "$P/airootfs/home/fusion/.bash_profile"
 echo ">> installing the Fusion userspace tools into airootfs"
 "$REPO/scripts/install-fusion-userspace.sh" "$P/airootfs"
 
+echo ">> applying the performance baseline into airootfs (configs, masks, cmdline)"
+"$REPO/scripts/fusion-perf-baseline.sh" "$P/airootfs"
+
 echo ">> enabling services (NetworkManager, fusion-firstboot; getty autologin via drop-in)"
 install -d "$P/airootfs/etc/systemd/system/multi-user.target.wants"
 ln -sf /usr/lib/systemd/system/NetworkManager.service \

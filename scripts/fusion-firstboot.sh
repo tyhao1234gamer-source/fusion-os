@@ -63,7 +63,23 @@ if [ "${NVIDIA:-False}" = "True" ]; then
     fi
 fi
 
-# --- 4. AVX2 warning surfaced to the user -----------------------------
+# --- 4. Preinstalled extra app: Heroic (Epic Games) via flatpak -------
+# Epic has no native Linux client; Heroic is the standard launcher for it.
+if command -v flatpak >/dev/null 2>&1; then
+    if ping -c1 -W2 flathub.org >/dev/null 2>&1; then
+        echo ">> installing Heroic Games Launcher (Epic/GOG) via flatpak"
+        flatpak remote-add --if-not-exists flathub \
+            https://dl.flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
+        flatpak install -y --noninteractive flathub com.heroicgameslauncher.hgl \
+            >/dev/null 2>&1 && echo "   Heroic installed" \
+            || echo "   Heroic install deferred (install later: flatpak install flathub com.heroicgameslauncher.hgl)"
+    else
+        echo ">> offline: install Heroic (Epic) later with:"
+        echo "     flatpak install flathub com.heroicgameslauncher.hgl"
+    fi
+fi
+
+# --- 5. AVX2 warning surfaced to the user -----------------------------
 if python3 -c "import json;import sys;sys.exit(0 if json.load(open('/etc/fusion/machine.json'))['machine']['cpu']['has_avx2'] else 1)"; then :; else
     echo ">> NOTE: this CPU has no AVX2; some modern titles will not run (hardware limit)."
 fi

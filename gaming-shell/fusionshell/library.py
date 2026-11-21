@@ -30,7 +30,8 @@ class GameEntry:
     subtitle: str = ""
 
     def label(self) -> str:
-        tag = {"windows": "[WIN]", "steam": "[STEAM]"}.get(self.source, "")
+        tag = {"windows": "[WIN]", "steam": "[STEAM]",
+               "app": "[APP]"}.get(self.source, "")
         return f"{tag} {self.title}"
 
 
@@ -98,8 +99,55 @@ def from_steam(steamapps_dir: str | None = None) -> list[GameEntry]:
     return out
 
 
+# Preinstalled apps shown as launchable tiles. A command of [] means "detect";
+# `from_apps` keeps only the ones actually present.
+_APPS = [
+    ("Steam",   "steam",   ["steam", "-gamepadui"]),
+    ("Discord", "discord", ["discord"]),
+    ("Firefox", "firefox", ["firefox"]),
+    # Epic/GOG via Heroic (flatpak) -- Epic has no native Linux client.
+    ("Epic (Heroic)", "flatpak-heroic",
+     ["flatpak", "run", "com.heroicgameslauncher.hgl"]),
+]
+
+
+def _which(binary: str) -> bool:
+    import shutil
+    return shutil.which(binary) is not None
+
+
+def _flatpak_installed(app_id: str) -> bool:
+    import subprocess
+    try:
+        out = subprocess.run(["flatpak", "info", app_id], capture_output=True,
+                             timeout=5)
+        return out.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def from_apps(check=None) -> list[GameEntry]:
+    """Preinstalled apps that are actually present on the system."""
+    check = check or _default_app_check
+    out: list[GameEntry] = []
+    for title, key, argv in _APPS:
+        if not check(key, argv):
+            continue
+        out.append(GameEntry(key=f"app:{key}", title=title, source="app",
+                             launch_argv=argv, subtitle="app"))
+    return out
+
+
+def _default_app_check(key: str, argv: list[str]) -> bool:
+    if key == "flatpak-heroic":
+        return _which("flatpak") and _flatpak_installed("com.heroicgameslauncher.hgl")
+    return _which(argv[0])
+
+
 def build_library(root: str | None = None,
-                  steamapps_dir: str | None = None) -> list[GameEntry]:
+                  steamapps_dir: str | None = None,
+                  app_check=None) -> list[GameEntry]:
     games = from_compat_profiles(root) + from_steam(steamapps_dir)
     games.sort(key=lambda g: g.title.lower())
-    return games
+    # Apps go first so they're easy to reach; games follow alphabetically.
+    return from_apps(app_check) + games

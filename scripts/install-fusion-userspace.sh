@@ -26,6 +26,7 @@ cp -r "$REPO/optimizer/fusionopt"               "$LIB/"
 cp -r "$REPO/benchmarks/fusionbench"            "$LIB/"
 cp -r "$REPO/gaming-shell/fusionshell"          "$LIB/"
 cp -r "$REPO/hardware/fusionhw"                 "$LIB/"
+cp -r "$REPO/setup/fusionsetup"                 "$LIB/"
 # ship the curated compat seed too
 install -Dm644 "$REPO/compatibility-manager/profiles/compatdb.seed.json" \
     "$TARGET/usr/share/fusion/compatdb.seed.json"
@@ -44,6 +45,7 @@ mk fusion-compat fusioncompat.cli
 mk fusion-opt    fusionopt.cli
 mk fusion-bench  fusionbench.cli
 mk fusion-shell  fusionshell.cli
+mk fusion-setup  fusionsetup.cli
 
 # fusion-detect: a thin wrapper that finds fusionhw in /usr/lib/fusion.
 cat > "$BIN/fusion-detect" <<'EOF'
@@ -65,9 +67,17 @@ install -Dm755 "$REPO/optimizer/fusion-game" "$BIN/fusion-game"
 sed -i 's#"\$HERE/../compatibility-manager/fusion-compat"#fusion-compat#g; s#"\$HERE/fusion-opt"#fusion-opt#g; s#"\$HERE/fusion-gpu"#fusion-gpu#g; s#PYTHONPATH="\$HERE"#PYTHONPATH=/usr/lib/fusion#g' \
     "$BIN/fusion-game"
 
-# Vendor-aware GPU helper and the universal first-boot auto-config.
-install -Dm755 "$REPO/optimizer/fusion-gpu"        "$BIN/fusion-gpu"
-install -Dm755 "$REPO/scripts/fusion-firstboot.sh" "$BIN/fusion-firstboot"
+# Vendor-aware GPU helper, universal first-boot auto-config, perf baseline.
+install -Dm755 "$REPO/optimizer/fusion-gpu"           "$BIN/fusion-gpu"
+install -Dm755 "$REPO/scripts/fusion-firstboot.sh"    "$BIN/fusion-firstboot"
+install -Dm755 "$REPO/scripts/fusion-perf-baseline.sh" "$BIN/fusion-perf-baseline"
+
+# Scoped passwordless sudo for the autologin session (Fusion tools only).
+install -Dm440 "$REPO/configs/fusion-sudoers" "$TARGET/etc/sudoers.d/fusion"
+
+# Ship the performance config files so fusion-perf-baseline works post-install.
+install -d "$TARGET/usr/share/fusion/perf"
+cp "$REPO/configs/fusion-performance/"* "$TARGET/usr/share/fusion/perf/"
 
 echo ">> installing system configs"
 install -Dm644 "$REPO/configs/99-fusion-sysctl.conf" "$TARGET/etc/sysctl.d/99-fusion.conf"

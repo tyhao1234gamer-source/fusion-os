@@ -39,6 +39,15 @@ power-profiles-daemon
 irqbalance
 mesa-demos
 
+# --- Preinstalled apps (NOT part of setup; launch on demand) ---
+firefox                # browser
+discord                # official Linux client
+flatpak                # used to install Heroic (Epic/GOG) universally at first boot
+# Steam is already in the gaming runtime section above -- it comes installed but
+# the setup wizard never asks for a Steam/cloud account; sign in only if you want.
+# Epic Games has NO native Linux client; Heroic Games Launcher is the standard
+# way to run Epic titles. Installed via flatpak by fusion-firstboot (see notes).
+
 # --- Install-to-disk ---
 archinstall
 
