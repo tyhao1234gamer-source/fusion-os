@@ -1,12 +1,27 @@
-# PS4 Fusion OS
+# Fusion OS
 
-A lightweight, gaming-focused Linux distribution for the PlayStation 4, built as
-a **tuned spin over the community PS4 Linux kernel + drivers** with an
-**original userspace layer** (compatibility, optimization, interface,
-benchmarking) built from scratch.
+A lightweight, gaming-focused Linux distribution with an **original userspace
+layer** built from scratch: a Windows-game compatibility manager, a reversible
+performance engine, a controller-first launcher, and a reproducible benchmark.
 
-See `documentation/` and the Phase 1 technical report for the reasoning behind
-the architecture. This README is the honest status of the repo.
+**Primary target: a weak x86-64 laptop.** The deliverable is a bootable ISO
+(Arch-based, boots straight into a gamescope + Steam Big Picture session) — see
+**`iso/`**. The PS4 was the original target and that path is still here (kernel
+overlay, southbridge detection, loader trio under `kernel/` `hardware/`
+`installer/`), but the laptop build is the main focus now.
+
+See `documentation/` and the Phase 1 technical report for the architecture
+reasoning. This README is the honest status of the repo.
+
+## Two ways to get it onto the laptop
+
+```bash
+# A) Build the bootable ISO (on an Arch host with internet + archiso):
+sudo ./iso/build-iso.sh            # -> ./out/fusion-os-*.iso  (see iso/README.md)
+
+# B) Turn an existing minimal Arch install into Fusion OS:
+sudo ./scripts/fusion-postinstall.sh
+```
 
 ## Design stance (why it is not "just Arch + Wine")
 
@@ -39,7 +54,12 @@ target says so.
 compatibility-manager/fusion-compat  runtimes | add | list | doctor | run | report
 
 # Reversible system tuning: EXTREME / COMPETITIVE / BALANCED / LOW
+# (governor, EPP, amdgpu perf level, zram, IO sched, CPU pinning, services)
 optimizer/fusion-opt                 list | plan | apply [--real] | status | restore
+
+# One-shot max-performance launcher: profile + CPU pin + gamemode + mangohud + gamescope
+optimizer/fusion-game                --profile extreme --res 1280x720 -- <game>
+optimizer/fusion-game                --profile competitive --compat <game_id>
 
 # Reproducible measurement vs baseline: idle RAM/CPU, FPS, 1% lows, frametimes
 benchmarks/fusion-bench              idle | frames | baselines | compare

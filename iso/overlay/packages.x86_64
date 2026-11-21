@@ -1,0 +1,50 @@
+# Fusion OS package additions (appended to the archiso releng list).
+# Target: a weak x86-64 laptop. Lean gaming stack, no heavy desktop.
+
+# --- Graphics drivers: open stack for all common laptop GPUs ---
+mesa
+lib32-mesa
+vulkan-icd-loader
+lib32-vulkan-icd-loader
+vulkan-radeon          # AMD
+lib32-vulkan-radeon
+vulkan-intel           # Intel
+lib32-vulkan-intel
+vulkan-nouveau         # NVIDIA (open). Proprietary = see iso/README (nvidia).
+mesa-utils
+libva-mesa-driver
+
+# --- Gaming runtime ---
+steam
+gamescope
+mangohud
+lib32-mangohud
+gamemode
+lib32-gamemode
+wine
+wine-gecko
+wine-mono
+winetricks
+vkd3d
+lib32-vkd3d
+dxvk-bin               # (AUR) or install per-prefix via the Compatibility Manager
+
+# --- Controllers / input ---
+xpadneo-dkms           # xbox pads (AUR/community); DS4 is handled by hid-sony in-kernel
+# dualsensectl         # optional, DualSense extras
+
+# --- System / performance ---
+zram-generator
+power-profiles-daemon
+irqbalance
+mesa-demos
+
+# --- Install-to-disk ---
+archinstall
+
+# --- Base niceties on a weak box ---
+python                 # the Fusion tools need only python3 (already in base)
+htop
+nano
+sudo
+networkmanager

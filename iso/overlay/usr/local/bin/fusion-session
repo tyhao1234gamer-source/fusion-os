@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# fusion-session -- what a Fusion login runs. Starts a lightweight gaming
+# session on a weak laptop: applies a performance profile, then launches a
+# gamescope session hosting Steam Big Picture if available, otherwise the
+# Fusion Gaming Shell (TUI). No full desktop environment.
+set -u
+
+# Only auto-start the session on the primary VT; leave other TTYs as shells.
+[ "$(tty)" = "/dev/tty1" ] || exit 0
+
+# Warm, reversible performance baseline for the session.
+fusion-opt apply balanced --real 2>/dev/null || true
+
+export MESA_SHADER_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fusion/mesa"
+mkdir -p "$MESA_SHADER_CACHE_DIR"
+
+if command -v gamescope >/dev/null 2>&1 && command -v steam >/dev/null 2>&1; then
+    # Session compositor hosting Steam Big Picture -- the best weak-laptop UX.
+    exec gamescope -e --steam -- steam -gamepadui -steamos
+elif command -v gamescope >/dev/null 2>&1; then
+    exec gamescope -- fusion-shell
+else
+    exec fusion-shell
+fi

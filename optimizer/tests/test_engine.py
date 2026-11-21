@@ -61,8 +61,21 @@ class TestEngine(unittest.TestCase):
         eng.restore()
         self.assertIn(("start", "bluetooth.service"), be.services)
 
-    def test_competitive_pins_cluster(self):
-        self.assertEqual(resolve("competitive").game_cpuset, "0-3")
+    def test_competitive_pins_half(self):
+        self.assertEqual(resolve("competitive").game_cpuset, "half")
+
+    def test_resolve_cpuset_scales_to_machine(self):
+        from fusionopt.profiles import resolve_cpuset
+        self.assertEqual(resolve_cpuset("half", 8), "0-3")
+        self.assertEqual(resolve_cpuset("half", 4), "0-1")
+        self.assertEqual(resolve_cpuset("half", 2), "")      # too few to carve
+        self.assertEqual(resolve_cpuset("", 8), "")
+        self.assertEqual(resolve_cpuset("2,4", 8), "2,4")    # literal passthrough
+
+    def test_gpu_dpm_present_in_extreme(self):
+        keys = {t.key for t in resolve("extreme").tunables}
+        self.assertIn("gpu_dpm", keys)
+        self.assertIn("epp", keys)
 
     def test_absent_knob_is_skipped_not_crashed(self):
         be = DryRunBackend({"/proc/sys/vm/swappiness": "60"})  # minimal

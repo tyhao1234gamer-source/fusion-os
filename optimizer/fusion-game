@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# =====================================================================
+# fusion-game -- one launcher that applies max-performance settings, then
+# runs a game wrapped in the right layers for a weak x86 laptop:
+#
+#   taskset (CPU pin)  ->  gamemoderun  ->  mangohud  ->  gamescope  ->  game
+#
+# Each layer is used only if installed and not disabled. The CPU pin set comes
+# from the active performance profile (e.g. COMPETITIVE pins the game to the
+# first half of cores). Nothing here overclocks or changes thermal limits.
+#
+# Usage:
+#   fusion-game [opts] -- <command> [args...]      run a native command/game
+#   fusion-game [opts] --compat <game_id>          run a Windows title via fusion-compat
+# Options:
+#   --profile P     apply performance profile first (extreme|competitive|balanced|low)
+#   --res WxH       gamescope output resolution (e.g. 1280x720 to upscale on weak GPUs)
+#   --fps N         gamescope frame limit
+#   --no-gamescope  don't wrap in gamescope
+#   --no-mangohud   don't show the perf overlay
+#   --no-gamemode   don't use gamemoderun
+#   --dry-run       print the final command instead of running it
+# =====================================================================
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+
+profile=""; res=""; fps=""; use_gamescope=1; use_mangohud=1; use_gamemode=1
+dry=0; compat_id=""; cmd=()
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --profile) profile="$2"; shift 2;;
+        --res) res="$2"; shift 2;;
+        --fps) fps="$2"; shift 2;;
+        --no-gamescope) use_gamescope=0; shift;;
+        --no-mangohud) use_mangohud=0; shift;;
+        --no-gamemode) use_gamemode=0; shift;;
+        --dry-run) dry=1; shift;;
+        --compat) compat_id="$2"; shift 2;;
+        --) shift; cmd=("$@"); break;;
+        *) echo "unknown option: $1" >&2; exit 2;;
+    esac
+done
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# 1) Apply the performance profile (reversible via `fusion-opt restore`).
+if [ -n "$profile" ]; then
+    echo ">> applying profile: $profile"
+    if [ "$dry" = 0 ]; then
+        "$HERE/fusion-opt" apply "$profile" --real || echo "   (profile apply skipped)"
+    fi
+fi
+
+# 2) Resolve the CPU pin set from the profile hint, scaled to THIS machine.
+cpuset=""
+if [ -n "$profile" ]; then
+    cpuset="$(PYTHONPATH="$HERE" python3 -c \
+        "from fusionopt.profiles import resolve, resolve_cpuset; \
+print(resolve_cpuset(resolve('$profile').game_cpuset))" 2>/dev/null || echo "")"
+fi
+
+# 3) Resolve the game command. For a Windows title we wrap the Compatibility
+#    Manager's own --real run (it sets env + execs); gamescope/taskset wrap that.
+if [ -n "$compat_id" ]; then
+    cmd=("$HERE/../compatibility-manager/fusion-compat" run "$compat_id" --real)
+fi
+if [ ${#cmd[@]} -eq 0 ]; then
+    echo "nothing to run: give -- <command> or --compat <id>" >&2
+    exit 2
+fi
+
+# 4) Build the wrapper chain outside-in.
+wrap=()
+if [ -n "$cpuset" ] && have taskset; then wrap+=(taskset -c "$cpuset"); fi
+if [ "$use_gamemode" = 1 ] && have gamemoderun; then wrap+=(gamemoderun); fi
+if [ "$use_mangohud" = 1 ] && have mangohud; then wrap+=(mangohud); fi
+if [ "$use_gamescope" = 1 ] && have gamescope; then
+    gs=(gamescope)
+    [ -n "$res" ] && gs+=(-W "${res%x*}" -H "${res#*x}")
+    [ -n "$fps" ] && gs+=(-r "$fps")
+    gs+=(-f --)       # fullscreen, then the command
+    wrap+=("${gs[@]}")
+fi
+
+final=("${wrap[@]}" "${cmd[@]}")
+printf '>> '; printf '%q ' "${final[@]}"; printf '\n'
+
+if [ "$dry" = 1 ]; then
+    echo "(dry-run: not executed)"
+    exit 0
+fi
+exec "${final[@]}"
