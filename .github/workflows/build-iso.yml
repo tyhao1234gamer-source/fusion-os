@@ -1,0 +1,56 @@
+name: Build Fusion OS ISO
+
+# Builds the bootable Fusion OS ISO on GitHub's runners (which have open
+# internet), so you never need an Arch machine. Trigger it from the Actions tab
+# ("Run workflow") or on a tag push. The finished .iso is uploaded as an
+# artifact you download from the run page; tag pushes also attach it to a
+# Release.
+
+on:
+  workflow_dispatch:        # manual "Run workflow" button
+  push:
+    tags:
+      - "v*"                # e.g. git tag v0.4 && git push --tags
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build ISO in an Arch container (privileged for loop/mount)
+        run: |
+          docker run --privileged --rm \
+            -v "${{ github.workspace }}:/repo" \
+            archlinux:latest \
+            bash -c '
+              set -euo pipefail
+              pacman -Sy --noconfirm --needed archiso python
+              chmod +x /repo/iso/build-iso.sh /repo/scripts/*.sh \
+                       /repo/optimizer/fusion-* /repo/hardware/fusion-detect \
+                       /repo/*/fusion-* 2>/dev/null || true
+              OUT=/repo/out /repo/iso/build-iso.sh
+            '
+
+      - name: Checksum
+        run: |
+          cd out && sha256sum *.iso > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fusion-os-iso
+          path: |
+            out/*.iso
+            out/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Attach to Release (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/*.iso
+            out/SHA256SUMS.txt

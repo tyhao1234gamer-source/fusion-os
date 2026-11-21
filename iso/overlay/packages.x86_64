@@ -1,16 +1,18 @@
 # Fusion OS package additions (appended to the archiso releng list).
-# Target: a weak x86-64 laptop. Lean gaming stack, no heavy desktop.
+# Target: a weak x86-64 laptop/PC. Lean gaming stack, no heavy desktop.
+# IMPORTANT: pacman package lists take ONE bare package name per line.
+# No inline comments on a package line -- they must be on their own line.
 
-# --- Graphics drivers: open stack for all common laptop GPUs ---
+# --- Graphics drivers: open stack for all common GPUs ---
 mesa
 lib32-mesa
 vulkan-icd-loader
 lib32-vulkan-icd-loader
-vulkan-radeon          # AMD
+vulkan-radeon
 lib32-vulkan-radeon
-vulkan-intel           # Intel
+vulkan-intel
 lib32-vulkan-intel
-vulkan-nouveau         # NVIDIA (open). Proprietary = see iso/README (nvidia).
+vulkan-nouveau
 mesa-utils
 libva-mesa-driver
 
@@ -27,32 +29,25 @@ wine-mono
 winetricks
 vkd3d
 lib32-vkd3d
-dxvk-bin               # (AUR) or install per-prefix via the Compatibility Manager
 
 # --- Controllers / input ---
-xpadneo-dkms           # xbox pads (AUR/community); DS4 is handled by hid-sony in-kernel
-# dualsensectl         # optional, DualSense extras
+# (DualShock 4 works via in-kernel hid-sony; xpadneo is AUR -- see iso/README)
 
 # --- System / performance ---
 zram-generator
 power-profiles-daemon
 irqbalance
-mesa-demos
 
-# --- Preinstalled apps (NOT part of setup; launch on demand) ---
-firefox                # browser
-discord                # official Linux client
-flatpak                # used to install Heroic (Epic/GOG) universally at first boot
-# Steam is already in the gaming runtime section above -- it comes installed but
-# the setup wizard never asks for a Steam/cloud account; sign in only if you want.
-# Epic Games has NO native Linux client; Heroic Games Launcher is the standard
-# way to run Epic titles. Installed via flatpak by fusion-firstboot (see notes).
+# --- Preinstalled apps (launched on demand, NOT during setup) ---
+firefox
+discord
+flatpak
 
 # --- Install-to-disk ---
 archinstall
 
-# --- Base niceties on a weak box ---
-python                 # the Fusion tools need only python3 (already in base)
+# --- Base niceties ---
+python
 htop
 nano
 sudo

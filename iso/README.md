@@ -5,20 +5,38 @@ A lightweight Arch-based gaming spin that boots straight into a gaming session
 performance tools built in. Built **on top of the official Arch `releng`
 profile** — Fusion is the overlay, not a fork.
 
-## Honest note on building
+## How to get the real .iso (pick one)
 
-The `.iso` is **not** and **cannot be** built inside the Fusion dev sandbox: it
-needs internet (to download packages), root, and `mkarchiso`. `build-iso.sh` is
-the recipe you run on an Arch host to produce it. The parts that are pure logic
-(the userspace install, the overlay, the tuning) are tested; the final image
-must be built and boot-tested by you.
+The `.iso` must download hundreds of packages, so it is built where there is
+open internet. The whole build pipeline (overlay, user, tuning, package list)
+is tested end-to-end with a stubbed `mkarchiso`; these are the ways to run the
+real thing.
 
-## Build it
+### Option 1 — Let GitHub build it (no Arch, no Docker, recommended)
 
-On an Arch Linux host (or `archlinux` container) with internet:
+Push this repo to GitHub, then:
+
+- **Actions tab → "Build Fusion OS ISO" → Run workflow**, or
+- `git tag v0.4 && git push --tags`
+
+GitHub builds the ISO on its own runners (full internet, Arch container) and
+uploads it. Download it from the run's **Artifacts** (`fusion-os-iso`), or — for
+a tag — from the auto-created **Release**. A `SHA256SUMS.txt` is included.
+Workflow: `.github/workflows/build-iso.yml`.
+
+### Option 2 — Build with Docker on any machine (Windows/Mac/Linux)
 
 ```bash
-sudo pacman -S archiso
+./iso/build-in-docker.sh         # runs the build inside an Arch container
+# -> ./out/fusion-os-*.iso
+```
+
+Needs Docker + internet. No Arch install required.
+
+### Option 3 — Native Arch host
+
+```bash
+sudo pacman -S archiso python
 sudo ./iso/build-iso.sh          # -> ./out/fusion-os-*.iso
 ```
 
