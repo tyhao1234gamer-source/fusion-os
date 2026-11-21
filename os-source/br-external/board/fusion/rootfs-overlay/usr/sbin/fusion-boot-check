@@ -37,7 +37,7 @@ fi
     echo "root: $(findmnt -no SOURCE / 2>/dev/null) $(lsblk -no PARTUUID "$(findmnt -no SOURCE /)" 2>/dev/null)"
     echo "os: $(. /etc/os-release && echo "$PRETTY_NAME")"
     echo "kernel: $(uname -r)"
-    echo "libc: $(ldd --version 2>&1 | head -n 1)"
+    echo "libc: $(/lib/libc.so.6 2>&1 | head -n 1)"
     echo "systemd-state: $(systemctl is-system-running 2>&1)"
     echo "failed-units: $(systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}' | tr '\n' ' ')"
     echo "zram: $(grep -c '^/dev/zram' /proc/swaps 2>/dev/null)"
@@ -45,7 +45,10 @@ fi
         if command -v "$t" >/dev/null 2>&1; then echo "tool: $t present"; else echo "tool: $t absent"; fi
     done
     echo "fusion-opt:"; fusion-opt list 2>&1 | head -n 4
-    echo "fusion-detect:"; fusion-detect --json 2>&1 | head -n 12
+    echo "fusion-detect:"; fusion-detect 2>&1 | head -n 14
+    for u in $(systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}'); do
+        echo "--- journal $u:"; journalctl -b -u "$u" --no-pager -n 15 2>&1
+    done
     command -v flatpak >/dev/null && echo "flatpak-version: $(flatpak --version 2>&1)"
     echo "FUSION_BOOT_OK"
 } > "$port" 2>&1

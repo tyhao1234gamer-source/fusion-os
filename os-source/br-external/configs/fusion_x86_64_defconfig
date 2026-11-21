@@ -90,3 +90,10 @@ BR2_PACKAGE_LINUX_FIRMWARE_BROADCOM_TIGON3=y
 # Installer tools (fusion-install-disk): mkfs.ext4 and partx.
 BR2_PACKAGE_E2FSPROGS=y
 BR2_PACKAGE_UTIL_LINUX_PARTX=y
+
+# Found by the first real QEMU boot (run 44934112181):
+# - several Fusion scripts (fusion-firstboot, fusion-perf-baseline,
+#   fusion-game, fusion-gpu) are bash scripts; busybox sh is not enough.
+# - zramctl is a separate util-linux option; without it zram was silently off.
+BR2_PACKAGE_BASH=y
+BR2_PACKAGE_UTIL_LINUX_ZRAMCTL=y

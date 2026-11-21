@@ -16,9 +16,16 @@ for alg in zstd lz4 lzo-rle lzo; do
     dev=$(zramctl --find --size "${size_kb}K" --algorithm "$alg" 2>/dev/null) && break
     dev=""
 done
+# Fallback without zramctl: the kernel's sysfs interface.
+if [ -z "$dev" ] && [ -w /sys/block/zram0/disksize ]; then
+    for alg in zstd lz4 lzo-rle lzo; do
+        echo "$alg" > /sys/block/zram0/comp_algorithm 2>/dev/null && break
+    done
+    echo "${size_kb}K" > /sys/block/zram0/disksize 2>/dev/null && dev=/dev/zram0
+fi
 if [ -z "$dev" ]; then
-    echo "fusion-zram: could not set up zram (kernel without zram?)" >&2
-    exit 0
+    echo "fusion-zram: could not set up zram (no zramctl and no /sys/block/zram0)" >&2
+    exit 1
 fi
 mkswap "$dev" >/dev/null && swapon -p 100 "$dev" \
     && echo "fusion-zram: $dev ${size_kb}K ($alg)"

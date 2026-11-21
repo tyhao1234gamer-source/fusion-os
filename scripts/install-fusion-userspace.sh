@@ -47,18 +47,12 @@ mk fusion-bench  fusionbench.cli
 mk fusion-shell  fusionshell.cli
 mk fusion-setup  fusionsetup.cli
 
-# fusion-detect: a thin wrapper that finds fusionhw in /usr/lib/fusion.
-cat > "$BIN/fusion-detect" <<'EOF'
-#!/usr/bin/env python3
-import sys; sys.path.insert(0, "/usr/lib/fusion")
-import argparse, json
-from fusionhw.detect import classify, detect
-p = argparse.ArgumentParser(prog="fusion-detect")
-p.add_argument("--pci", nargs="*")
-a = p.parse_args()
-rec = classify([tuple(x.lower().split(":")) for x in a.pci]) if a.pci else detect()
-print(json.dumps(rec.as_dict(), indent=2))
-EOF
+# fusion-detect: the real CLI (universal report, --json, --ps4), pointed at
+# /usr/lib/fusion. (An old PS4-only wrapper used to be written here; it had
+# no --json, so fusion-firstboot failed on every machine.)
+sed 's|^sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))$|sys.path.insert(0, os.environ.get("FUSION_LIB", "/usr/lib/fusion"))|' \
+    "$REPO/hardware/fusion-detect" > "$BIN/fusion-detect"
+grep -q 'FUSION_LIB' "$BIN/fusion-detect" || { echo "fusion-detect path patch failed" >&2; exit 1; }
 chmod +x "$BIN/fusion-detect"
 
 # fusion-game is a bash script; copy and patch its relative lookups since on the
