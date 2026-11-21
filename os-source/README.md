@@ -39,6 +39,31 @@ make -C buildroot O="$PWD/output"
 # -> output/images/fusion-os.img
 ```
 
+## Editions
+
+| Edition | What it adds | Defconfig |
+|---|---|---|
+| `base` | boots from USB on any UEFI PC, Fusion tools, setup wizard | `fusion_x86_64_defconfig` |
+| `gaming` | + Mesa 24 (OpenGL: AMD radeonsi, Intel iris, nouveau), Vulkan (Intel ANV, lavapipe), GPU firmware, Wayland + `cage` fullscreen session, SDL2, PipeWire audio | base + `gaming.fragment` (combined at build time) |
+
+Pick the edition in the workflow's **Run workflow** dialog.
+
+Every build runs `validate-config.py`, which fails fast if Buildroot silently
+dropped any requested option (an unmet dependency would otherwise only show up
+as a broken system an hour later).
+
+## Known hard limits of the from-source edition (honest)
+
+- **Steam**: the Steam client and most of Proton need 32-bit (i386) libraries
+  installed next to the 64-bit ones ("multilib"). Buildroot builds a single
+  architecture, and it does not package Flatpak (Steam's Flatpak brings its
+  own 32-bit runtime). So Steam does **not** run on this edition yet. Paths
+  forward: package Flatpak + OSTree ourselves, or build a second i386 sysroot.
+- **AMD Vulkan (RADV)** is not exposed by Buildroot's Mesa package; AMD GPUs
+  get OpenGL now, Vulkan needs an extra package override.
+- **NVIDIA**: Buildroot ships no NVIDIA firmware, so NVIDIA cards run nouveau
+  without GSP firmware (limited performance).
+
 ## Status (honest)
 
 First-source milestone: compiles from source and boots to a login that runs the

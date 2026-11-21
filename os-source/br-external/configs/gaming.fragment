@@ -1,0 +1,55 @@
+# Fusion OS "gaming" edition -- appended to fusion_x86_64_defconfig.
+# Graphics, Vulkan, a fullscreen Wayland session, input and audio, all
+# compiled from source. (Last assignment wins in a defconfig, so the kernel
+# fragment list below replaces the base one.)
+
+# --- Kernel: base fragment + GPU/audio drivers ---
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/linux-fragment.config $(BR2_EXTERNAL_FUSION_PATH)/board/fusion/linux-gaming.config"
+
+# --- GPU firmware (AMD + Intel). Buildroot ships no NVIDIA/nouveau firmware
+#     option, so NVIDIA cards run nouveau without GSP firmware (limited). ---
+BR2_PACKAGE_LINUX_FIRMWARE=y
+BR2_PACKAGE_LINUX_FIRMWARE_AMDGPU=y
+BR2_PACKAGE_LINUX_FIRMWARE_RADEON=y
+BR2_PACKAGE_LINUX_FIRMWARE_I915=y
+
+# --- Mesa 3D: OpenGL (AMD radeonsi, Intel iris, nouveau, software) ---
+BR2_PACKAGE_MESA3D=y
+BR2_PACKAGE_MESA3D_LLVM=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_RADEONSI=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_IRIS=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_NOUVEAU=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_SWRAST=y
+BR2_PACKAGE_MESA3D_OPENGL_EGL=y
+BR2_PACKAGE_MESA3D_OPENGL_ES=y
+BR2_PACKAGE_MESA3D_GBM=y
+
+# --- Vulkan: Intel (ANV) + software (lavapipe) ---
+BR2_PACKAGE_MESA3D_VULKAN_DRIVER_INTEL=y
+BR2_PACKAGE_MESA3D_VULKAN_DRIVER_SWRAST=y
+BR2_PACKAGE_VULKAN_LOADER=y
+BR2_PACKAGE_VULKAN_TOOLS=y
+
+# --- Session: Wayland + cage (one fullscreen app, minimal overhead) ---
+BR2_PACKAGE_WAYLAND=y
+BR2_PACKAGE_WAYLAND_PROTOCOLS=y
+BR2_PACKAGE_SEATD=y
+BR2_PACKAGE_LIBINPUT=y
+BR2_PACKAGE_CAGE=y
+
+# --- Native games / test apps ---
+BR2_PACKAGE_SDL2=y
+BR2_PACKAGE_SDL2_KMSDRM=y
+BR2_PACKAGE_SDL2_OPENGLES=y
+BR2_PACKAGE_MESA3D_DEMOS=y
+
+# --- Audio ---
+BR2_PACKAGE_ALSA_UTILS=y
+BR2_PACKAGE_PIPEWIRE=y
+# WirePlumber (PipeWire session manager) needs Lua 5.4
+BR2_PACKAGE_LUA=y
+BR2_PACKAGE_LUA_5_4=y
+BR2_PACKAGE_WIREPLUMBER=y
+
+# --- Bigger root filesystem for the graphics stack ---
+BR2_TARGET_ROOTFS_EXT2_SIZE="4G"

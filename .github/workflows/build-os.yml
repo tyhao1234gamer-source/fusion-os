@@ -9,6 +9,12 @@ name: Build Fusion OS from source (Buildroot)
 
 on:
   workflow_dispatch:
+    inputs:
+      edition:
+        description: "base = boots + Fusion tools; gaming = + Mesa/Vulkan/Wayland/audio"
+        type: choice
+        options: [base, gaming]
+        default: base
   push:
     tags:
       - "src-v*"
@@ -43,10 +49,22 @@ jobs:
 
       - name: Configure Buildroot with the Fusion external tree
         run: |
-          make -C buildroot \
-            BR2_EXTERNAL="$GITHUB_WORKSPACE/fusion/os-source/br-external" \
-            O="$GITHUB_WORKSPACE/output" \
-            fusion_x86_64_defconfig
+          EXT="$GITHUB_WORKSPACE/fusion/os-source/br-external"
+          DEFCONFIG=fusion_x86_64_defconfig
+          if [ "${{ inputs.edition }}" = "gaming" ]; then
+            cat "$EXT/configs/fusion_x86_64_defconfig" "$EXT/configs/gaming.fragment" \
+              > "$EXT/configs/fusion_x86_64_gaming_defconfig"
+            DEFCONFIG=fusion_x86_64_gaming_defconfig
+          fi
+          echo "edition=${{ inputs.edition || 'base' }} defconfig=$DEFCONFIG"
+          make -C buildroot BR2_EXTERNAL="$EXT" O="$GITHUB_WORKSPACE/output" "$DEFCONFIG"
+
+      - name: Validate that Buildroot kept every requested option
+        run: |
+          EXT="$GITHUB_WORKSPACE/fusion/os-source/br-external"
+          DEF="$EXT/configs/fusion_x86_64_defconfig"
+          [ "${{ inputs.edition }}" = "gaming" ] && DEF="$EXT/configs/fusion_x86_64_gaming_defconfig"
+          python3 fusion/os-source/validate-config.py "$DEF" "$GITHUB_WORKSPACE/output/.config" "$EXT"
 
       - name: Build from source (toolchain + kernel + systemd + userland)
         shell: bash
@@ -64,7 +82,7 @@ jobs:
       - name: Upload Fusion OS image
         uses: actions/upload-artifact@v4
         with:
-          name: fusion-os-from-source
+          name: fusion-os-from-source-${{ inputs.edition || 'base' }}
           path: |
             output/images/fusion-os.img
             output/images/SHA256SUMS.txt
