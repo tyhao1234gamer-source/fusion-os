@@ -49,7 +49,10 @@ jobs:
             fusion_x86_64_defconfig
 
       - name: Build from source (toolchain + kernel + systemd + userland)
+        shell: bash
         run: |
+          # pipefail: a failing make must fail this step (tail alone hides it).
+          set -o pipefail
           make -C buildroot O="$GITHUB_WORKSPACE/output" 2>&1 | tail -n 4000
 
       - name: Collect image + checksum

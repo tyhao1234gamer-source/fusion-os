@@ -8,6 +8,10 @@ BR2_x86_64=y
 # --- Toolchain: glibc + C++ (needed by systemd and, later, the gaming stack) ---
 BR2_TOOLCHAIN_BUILDROOT_GLIBC=y
 BR2_TOOLCHAIN_BUILDROOT_CXX=y
+# Kernel headers must match the kernel series, otherwise Buildroot defaults to
+# 2.6 headers, glibc becomes unselectable and it silently falls back to uClibc.
+BR2_KERNEL_HEADERS_AS_KERNEL=y
+BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_12=y
 
 # --- Init / system: systemd (the honest base for services + our units) ---
 BR2_INIT_SYSTEMD=y
