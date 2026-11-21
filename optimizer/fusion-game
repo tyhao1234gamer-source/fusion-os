@@ -49,6 +49,11 @@ if [ -n "$profile" ]; then
     echo ">> applying profile: $profile"
     if [ "$dry" = 0 ]; then
         "$HERE/fusion-opt" apply "$profile" --real || echo "   (profile apply skipped)"
+        # Vendor-aware GPU max-perf state (covers NVIDIA/Intel beyond fusion-opt's
+        # amdgpu sysfs knob). Reversible with `fusion-gpu auto`.
+        case "$profile" in
+            extreme|competitive|max) "$HERE/fusion-gpu" high 2>/dev/null || true;;
+        esac
     fi
 fi
 

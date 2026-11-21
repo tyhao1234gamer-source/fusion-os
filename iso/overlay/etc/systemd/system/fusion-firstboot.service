@@ -1,0 +1,14 @@
+# Runs the universal hardware auto-configuration once, early on first boot.
+[Unit]
+Description=Fusion OS first-boot hardware auto-configuration
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/etc/fusion/.firstboot-done
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/fusion-firstboot
+
+[Install]
+WantedBy=multi-user.target

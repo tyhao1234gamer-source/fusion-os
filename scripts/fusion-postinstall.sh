@@ -27,8 +27,14 @@ chown fusion:fusion /home/fusion/.bash_profile
 echo ">> enabling autologin on tty1 + services"
 install -Dm644 "$REPO/iso/overlay/etc/systemd/system/getty@tty1.service.d/autologin.conf" \
     /etc/systemd/system/getty@tty1.service.d/autologin.conf
+install -Dm644 "$REPO/iso/overlay/etc/systemd/system/fusion-firstboot.service" \
+    /etc/systemd/system/fusion-firstboot.service
 systemctl enable NetworkManager.service 2>/dev/null || true
+systemctl enable fusion-firstboot.service 2>/dev/null || true
 # zram-generator.conf is already installed by install-fusion-userspace.sh
+
+echo ">> running the universal hardware auto-config now"
+/usr/bin/fusion-firstboot || true
 
 echo
 echo ">> Fusion OS post-install done. Reboot -> auto-login -> gaming session."

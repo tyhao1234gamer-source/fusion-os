@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# =====================================================================
+# fusion-gpu -- put whatever GPU is present into its maximum PERFORMANCE
+# STATE (not overclock). Vendor-detected, so it is universal.
+#
+#   fusion-gpu high     # prefer max performance (for gaming)
+#   fusion-gpu auto     # back to automatic (default / power saving)
+#
+# AMD    : /sys .../power_dpm_force_performance_level = high|auto
+# Intel  : raise gt_min_freq to gt_max (i915) so it doesn't idle low under load
+# NVIDIA : persistence mode on + PowerMizer "prefer maximum performance"
+#          (a power-state PREFERENCE, not an overclock; no clock offsets set)
+#
+# All changes are reversible with `fusion-gpu auto`. Nothing here raises clock
+# or voltage LIMITS or touches fan curves.
+# =====================================================================
+set -u
+mode="${1:-high}"
+case "$mode" in high|auto) ;; *) echo "usage: fusion-gpu high|auto"; exit 2;; esac
+did=0
+
+# --- AMD (amdgpu) -----------------------------------------------------
+for f in /sys/class/drm/card*/device/power_dpm_force_performance_level; do
+    [ -w "$f" ] || continue
+    echo "$mode" > "$f" 2>/dev/null && { echo "amd: $f -> $mode"; did=1; }
+done
+
+# --- Intel (i915) -----------------------------------------------------
+for card in /sys/class/drm/card*; do
+    mn="$card/gt_min_freq_mhz"; mx="$card/gt_max_freq_mhz"
+    [ -w "$mn" ] && [ -r "$mx" ] || continue
+    if [ "$mode" = high ]; then
+        cat "$mx" > "$mn" 2>/dev/null && { echo "intel: pinned min=max on $card"; did=1; }
+    else
+        # restore a sane low floor (RP1/efficient); read boot default if present.
+        [ -r "$card/gt_RP1_freq_mhz" ] && cat "$card/gt_RP1_freq_mhz" > "$mn" 2>/dev/null \
+            && { echo "intel: restored min floor on $card"; did=1; }
+    fi
+done
+
+# --- NVIDIA (proprietary) --------------------------------------------
+if command -v nvidia-smi >/dev/null 2>&1; then
+    if [ "$mode" = high ]; then
+        nvidia-smi -pm 1 >/dev/null 2>&1 && { echo "nvidia: persistence on"; did=1; }
+        # PowerMizer mode 1 = prefer maximum performance (needs an X display).
+        if command -v nvidia-settings >/dev/null 2>&1; then
+            nvidia-settings -a '[gpu:0]/GPUPowerMizerMode=1' >/dev/null 2>&1 \
+                && echo "nvidia: PowerMizer -> prefer max performance" || true
+        fi
+    else
+        command -v nvidia-settings >/dev/null 2>&1 && \
+            nvidia-settings -a '[gpu:0]/GPUPowerMizerMode=0' >/dev/null 2>&1 || true
+        echo "nvidia: PowerMizer -> auto"
+        did=1
+    fi
+fi
+
+[ "$did" = 1 ] || echo "fusion-gpu: no supported GPU knob found (ok on some iGPUs)"

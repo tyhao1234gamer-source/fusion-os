@@ -13,6 +13,22 @@ overlay, southbridge detection, loader trio under `kernel/` `hardware/`
 See `documentation/` and the Phase 1 technical report for the architecture
 reasoning. This README is the honest status of the repo.
 
+## Universal by design — one image, any machine
+
+Fusion OS is not tied to one GPU or CPU. `fusion-detect` reads the real
+hardware (CPU vendor + AVX2, every GPU by PCI class, RAM, and each disk's
+HDD/SSD/NVMe type) and produces a **driver plan** and a **tuning plan**. On the
+first boot, `fusion-firstboot` applies them automatically: per-disk IO scheduler
+(NVMe→none, SSD→mq-deadline, HDD→bfq), zram sized to the detected RAM, and — if
+an NVIDIA GPU is found and the machine is online — it installs the proprietary
+driver (AMD/Intel need nothing, the open stack ships in the image). The result:
+the same ISO extracts the most each machine can give, with no manual setup.
+
+```bash
+fusion-detect            # full machine report + driver/tuning plan for THIS box
+fusion-gpu high          # put the present GPU (AMD/Intel/NVIDIA) in max-perf state
+```
+
 ## Two ways to get it onto the laptop
 
 ```bash

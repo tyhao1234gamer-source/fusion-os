@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Print the detected PS4 hardware profile and Fusion recommendation.
+"""Fusion hardware detection.
 
-    fusion-detect              # detect on this machine
-    fusion-detect --pci 104d:908f 1002:9920   # classify given PCI IDs (testing)
+    fusion-detect                 # universal machine report (CPU/GPU/RAM/disk +
+                                  #   driver plan + tuning plan) -- the default
+    fusion-detect --json          # same, raw JSON for scripts
+    fusion-detect --ps4           # legacy PS4 southbridge classification
+    fusion-detect --ps4 --pci 104d:908f 1002:9920
 """
 import argparse
 import json
@@ -11,19 +14,52 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from fusionhw.detect import classify, detect  # noqa: E402
+from fusionhw import machine as M  # noqa: E402
 
 
 def main() -> int:
     p = argparse.ArgumentParser(prog="fusion-detect")
-    p.add_argument("--pci", nargs="*", help="vendor:device pairs to classify")
+    p.add_argument("--json", action="store_true", help="raw JSON output")
+    p.add_argument("--ps4", action="store_true", help="legacy PS4 classification")
+    p.add_argument("--pci", nargs="*", help="(with --ps4) vendor:device pairs")
     args = p.parse_args()
-    if args.pci:
-        ids = [tuple(x.lower().split(":")) for x in args.pci]
-        rec = classify(ids)
-    else:
-        rec = detect()
-    print(json.dumps(rec.as_dict(), indent=2))
+
+    if args.ps4:
+        from fusionhw.detect import classify, detect as ps4_detect
+        rec = classify([tuple(x.lower().split(":")) for x in args.pci]) \
+            if args.pci else ps4_detect()
+        print(json.dumps(rec.as_dict(), indent=2))
+        return 0
+
+    report = M.full_report()
+    if args.json:
+        print(json.dumps(report, indent=2))
+        return 0
+
+    # Human-readable universal report.
+    mc = report["machine"]
+    print("== Fusion machine report ==")
+    cpu = mc["cpu"]
+    print(f"CPU   : {cpu['model']}  ({cpu['vendor']}, {cpu['cores']} threads, "
+          f"AVX2={'yes' if cpu['has_avx2'] else 'NO'})")
+    print(f"RAM   : {mc['mem_total_mb']} MB")
+    for g in mc["gpus"]:
+        print(f"GPU   : {g['vendor']}  [{g['pci_id']}]")
+    for d in mc["disks"]:
+        kind = "NVMe" if d["is_nvme"] else ("HDD" if d["rotational"] else "SSD")
+        print(f"Disk  : {d['name']} ({kind})")
+    print("\n== Driver plan ==")
+    for icd in report["drivers"]["vulkan_icds"]:
+        print(f"  Vulkan: {icd}")
+    for n in report["drivers"]["notes"]:
+        print(f"  ! {n}")
+    print("\n== Tuning plan ==")
+    t = report["tuning"]
+    for disk, sched in t["io_scheduler"].items():
+        print(f"  IO {disk}: {sched}")
+    print(f"  zram: {t['zram_mb']} MB   CPU pin hint: {t['cpu_pin_hint'] or 'none'}")
+    for n in t["notes"]:
+        print(f"  ! {n}")
     return 0
 
 

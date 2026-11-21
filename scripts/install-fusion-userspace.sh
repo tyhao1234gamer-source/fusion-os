@@ -62,8 +62,12 @@ chmod +x "$BIN/fusion-detect"
 # fusion-game is a bash script; copy and patch its relative lookups since on the
 # installed system everything lives in /usr/bin.
 install -Dm755 "$REPO/optimizer/fusion-game" "$BIN/fusion-game"
-sed -i 's#"\$HERE/../compatibility-manager/fusion-compat"#fusion-compat#g; s#"\$HERE/fusion-opt"#fusion-opt#g; s#PYTHONPATH="\$HERE"#PYTHONPATH=/usr/lib/fusion#g' \
+sed -i 's#"\$HERE/../compatibility-manager/fusion-compat"#fusion-compat#g; s#"\$HERE/fusion-opt"#fusion-opt#g; s#"\$HERE/fusion-gpu"#fusion-gpu#g; s#PYTHONPATH="\$HERE"#PYTHONPATH=/usr/lib/fusion#g' \
     "$BIN/fusion-game"
+
+# Vendor-aware GPU helper and the universal first-boot auto-config.
+install -Dm755 "$REPO/optimizer/fusion-gpu"        "$BIN/fusion-gpu"
+install -Dm755 "$REPO/scripts/fusion-firstboot.sh" "$BIN/fusion-firstboot"
 
 echo ">> installing system configs"
 install -Dm644 "$REPO/configs/99-fusion-sysctl.conf" "$TARGET/etc/sysctl.d/99-fusion.conf"
