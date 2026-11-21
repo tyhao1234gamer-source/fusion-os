@@ -132,7 +132,10 @@ main() {
 
     new_uuid=$(cat /proc/sys/kernel/random/uuid)
     work=$(mktemp -d)
-    trap 'umount "$work/esp" "$work/new" "$work/old" 2>/dev/null; rmdir "$work"/* "$work" 2>/dev/null' EXIT
+    # Keep the real exit status: busybox ash would otherwise exit with the
+    # status of the trap's last command (an umount of something already
+    # unmounted), turning a successful install into a failure (CI caught it).
+    trap 'rc=$?; umount "$work/esp" "$work/new" "$work/old" 2>/dev/null; rmdir "$work"/* "$work" 2>/dev/null; exit $rc' EXIT
     mkdir -p "$work/esp" "$work/new" "$work/old"
 
     echo "  1/5 A criar as particoes..."
@@ -170,3 +173,4 @@ main() {
 }
 
 main "$@"
+exit 0

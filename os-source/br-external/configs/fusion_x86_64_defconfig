@@ -97,3 +97,7 @@ BR2_PACKAGE_UTIL_LINUX_PARTX=y
 # - zramctl is a separate util-linux option; without it zram was silently off.
 BR2_PACKAGE_BASH=y
 BR2_PACKAGE_UTIL_LINUX_ZRAMCTL=y
+
+# Our fixes for upstream packages that break on current build hosts
+# (patches/<package>/*.patch, applied by Buildroot to that package).
+BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_FUSION_PATH)/patches"

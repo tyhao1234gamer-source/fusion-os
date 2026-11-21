@@ -1,0 +1,21 @@
+From: Fusion OS <noreply@fusion-os>
+Subject: [PATCH] SpvBuilder.h: include <cstdint>
+
+GCC 13+ no longer pulls <cstdint> in transitively, so uint32_t is
+undeclared and host-python-glslang fails to build on current hosts.
+Same fix as upstream glslang (later releases include <cstdint>).
+
+Signed-off-by: Fusion OS <noreply@fusion-os>
+---
+diff --git a/SPIRV/SpvBuilder.h b/SPIRV/SpvBuilder.h
+index b75eab8..d7d6edd 100644
+--- a/SPIRV/SpvBuilder.h
++++ b/SPIRV/SpvBuilder.h
+@@ -56,6 +56,7 @@ namespace spv {
+ }
+ 
+ #include <algorithm>
++#include <cstdint>
+ #include <map>
+ #include <memory>
+ #include <set>
