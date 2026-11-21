@@ -79,6 +79,14 @@ class InstallDisk(unittest.TestCase):
                            capture_output=True, text=True)
         self.assertNotIn("Fusion OS - instalar", r.stdout)
 
+    def test_cleanup_trap_keeps_success_status(self):
+        # The real trap line, run after a successful "install".
+        line = next(l for l in open(TOOL) if l.strip().startswith("trap 'rc=$?"))
+        script = ("set -eu\nwork=$(mktemp -d)\nmkdir -p $work/esp $work/new $work/old\n"
+                  "main() {\n" + line + "echo ok; }\nmain\nexit 0\n")
+        r = subprocess.run(["dash", "-c", script], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
