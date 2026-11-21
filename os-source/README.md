@@ -29,6 +29,28 @@ Write it to a USB and boot (UEFI):
 sudo dd if=fusion-os.img of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
+## Using the full edition
+
+1. Write `fusion-os.img` to a USB stick (8 GB+; Rufus "DD mode" or
+   balenaEtcher on Windows, `dd` on Linux) and boot it in **UEFI** mode.
+2. GRUB menu: **Fusion OS** (max performance, CPU mitigations off),
+   **safe** (mitigations on) or **recovery shell**.
+3. First boot: the setup screen asks region, time zone, keyboard and
+   Wi-Fi/Ethernet. No account, no sign-in.
+4. Steam, Discord, Epic (Heroic), Firefox, MangoHud and gamescope download
+   from Flathub once (needs the internet connection from step 3).
+5. The **Fusion menu** opens: Steam first. Arrow keys / D-pad to move,
+   Enter / A to open, Y to change the performance profile, B to quit.
+   Closing an app brings the menu back. Log into Steam only if you want to.
+6. To install on the internal disk: switch to a second console
+   (Ctrl+Alt+F2, log in as `root`, password `fusion`) and run
+   `fusion-install-disk`. It erases the chosen disk only after you type its
+   name **and** `APAGAR`.
+
+Every CI build also boots the image in QEMU (UEFI firmware, SATA disk) and
+fails unless the system reports `FUSION_BOOT_OK` with the Fusion tools
+running (see the `boot-test-<edition>` artifact).
+
 ## Build it locally (needs a Linux host + internet, no Arch required)
 
 ```bash
