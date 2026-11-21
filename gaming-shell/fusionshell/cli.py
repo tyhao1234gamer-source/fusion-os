@@ -18,13 +18,24 @@ from .library import GameEntry, build_library
 from .ui import ShellState, render_frame
 
 
-def _apply_profile(profile: str, opt_bin: str = "fusion-opt") -> None:
-    # Map shell label to the engine's profile key; apply for real.
-    key = profile.lower()
+def profile_command(profile: str, euid: int | None = None,
+                    opt_bin: str = "/usr/bin/fusion-opt") -> list[str]:
+    """argv that applies a performance profile for real.
+
+    The menu runs as the unprivileged session user, so it goes through the
+    scoped passwordless sudo rule (sudoers.d/fusion allows exactly fusion-opt).
+    """
+    euid = os.geteuid() if euid is None else euid
+    cmd = [opt_bin, "apply", profile.lower(), "--real"]
+    return cmd if euid == 0 else ["sudo", "-n", *cmd]
+
+
+def _apply_profile(profile: str) -> None:
     try:
-        subprocess.call([opt_bin, "apply", key, "--real"])
+        subprocess.call(profile_command(profile),
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError:
-        print(f"(could not run {opt_bin}; skipping profile apply)")
+        print("(could not apply the performance profile; continuing)")
 
 
 def launch_game(game: GameEntry, profile: str) -> int:

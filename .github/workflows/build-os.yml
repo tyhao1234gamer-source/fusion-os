@@ -55,13 +55,19 @@ jobs:
             bzip2 perl git python3 libncurses-dev mtools dosfstools \
             parted util-linux
 
-      - name: Generate the Fusion tools into the rootfs overlay
+      - name: Generate the Fusion tools + performance layer (overlay-generated)
         run: |
           chmod +x fusion/scripts/*.sh fusion/os-source/br-external/board/fusion/*.sh \
-                   fusion/os-source/br-external/board/fusion/overlay-full/usr/bin/* || true
-          OVERLAY=fusion/os-source/br-external/board/fusion/rootfs-overlay
-          fusion/scripts/install-fusion-userspace.sh "$OVERLAY"
-          echo "=== overlay /usr/bin ===" && ls "$OVERLAY/usr/bin"
+                   fusion/os-source/br-external/board/fusion/*/usr/bin/* \
+                   fusion/os-source/br-external/board/fusion/*/usr/sbin/* || true
+          GEN=fusion/os-source/br-external/board/fusion/overlay-generated
+          rm -rf "$GEN" && mkdir -p "$GEN"
+          fusion/scripts/install-fusion-userspace.sh "$GEN"
+          # The "remove slow defaults / add fast ones" layer: sysctl, journal
+          # in RAM, USB autosuspend off, boot-slowing services masked. (The
+          # kernel cmdline part lives in board/fusion/grub.cfg.)
+          fusion/scripts/fusion-perf-baseline.sh "$GEN"
+          echo "=== generated overlay ===" && find "$GEN" -maxdepth 4 | sort | head -60
 
       - name: Clone Buildroot (2025.02 LTS)
         run: git clone --depth 1 --branch 2025.02.x https://github.com/buildroot/buildroot.git
@@ -142,6 +148,46 @@ jobs:
             output/images/fusion-os.img
             output/images/SHA256SUMS.txt
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Boot test in QEMU (UEFI firmware, SATA disk)
+        timeout-minutes: 25
+        shell: bash
+        run: |
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf
+          ACCEL=""
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; ACCEL="-enable-kvm -cpu host"; fi
+          CODE=$(ls /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd 2>/dev/null | head -1)
+          VARS=$(ls /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd 2>/dev/null | head -1)
+          cp "$VARS" vars.fd
+          cp output/images/fusion-os.img boot-test.img
+          : > serial.log
+          qemu-system-x86_64 $ACCEL -machine q35 -m 4096 -smp 2 \
+            -drive if=pflash,format=raw,readonly=on,file="$CODE" \
+            -drive if=pflash,format=raw,file=vars.fd \
+            -drive file=boot-test.img,format=raw,if=none,id=d0 \
+            -device ide-hd,drive=d0,bus=ide.0 \
+            -nic user,model=e1000 -display none -serial file:serial.log &
+          QPID=$!
+          ok=0
+          for i in $(seq 1 180); do      # up to ~15 minutes
+            grep -q FUSION_BOOT_OK serial.log && { ok=1; break; }
+            kill -0 $QPID 2>/dev/null || break
+            sleep 5
+          done
+          kill $QPID 2>/dev/null || true
+          echo "================ serial console ================"
+          tr -d '\r' < serial.log | tail -n 150
+          echo "================================================"
+          if [ $ok = 1 ]; then echo "BOOT TEST PASSED"; else echo "BOOT TEST FAILED"; exit 1; fi
+
+      - name: Upload boot-test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-test-${{ env.EDITION }}
+          path: serial.log
+          if-no-files-found: ignore
           retention-days: 14
 
       - name: Save source downloads cache

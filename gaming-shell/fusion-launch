@@ -1,0 +1,45 @@
+#!/bin/sh
+# fusion-launch -- run an app fullscreen from the Fusion menu.
+#
+# If a display already exists (Arch edition inside gamescope, or a desktop)
+# the app runs directly. Otherwise this starts the `cage` compositor
+# (Wayland + Xwayland) on the current VT for just that app; when the app
+# exits, control returns to the Fusion menu.
+#
+# The keyboard layout chosen in the first-run setup screen is a *console*
+# keymap (/etc/vconsole.conf); Wayland reads XKB instead, so it is
+# translated here -- otherwise a Portuguese keyboard would type US keys.
+
+[ $# -gt 0 ] || { echo "usage: fusion-launch <command> [args...]" >&2; exit 2; }
+
+if [ -n "${WAYLAND_DISPLAY:-}" ] || [ -n "${DISPLAY:-}" ]; then
+    exec "$@"
+fi
+command -v cage >/dev/null 2>&1 || exec "$@"
+
+VCONSOLE="${FUSION_VCONSOLE:-/etc/vconsole.conf}"
+if [ -z "${XKB_DEFAULT_LAYOUT:-}" ] && [ -r "$VCONSOLE" ]; then
+    km=$(sed -n 's/^KEYMAP=//p' "$VCONSOLE" | tr -d '"' | head -n 1)
+    case "$km" in
+        "")        layout=us ;;
+        pt*)       layout=pt ;;
+        br*)       layout=br ;;
+        uk|gb*)    layout=gb ;;
+        us*)       layout=us ;;
+        es*)       layout=es ;;
+        fr*)       layout=fr ;;
+        de*)       layout=de ;;
+        it*)       layout=it ;;
+        *)         layout=${km%%-*} ;;
+    esac
+    export XKB_DEFAULT_LAYOUT="$layout"
+fi
+
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/xdg-runtime-$(id -u)}"
+mkdir -p "$XDG_RUNTIME_DIR" && chmod 0700 "$XDG_RUNTIME_DIR"
+export XDG_SESSION_TYPE=wayland
+
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
+    exec dbus-run-session -- cage -- "$@"
+fi
+exec cage -- "$@"

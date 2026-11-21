@@ -53,19 +53,51 @@ class TestUI(unittest.TestCase):
 
 
 class TestApps(unittest.TestCase):
-    def test_from_apps_filters_to_installed(self):
+    def _apps(self, native=(), flatpaks=(), launcher=True):
         from fusionshell.library import from_apps
-        # Pretend only Steam and Firefox are present.
-        present = {"steam", "firefox"}
-        apps = from_apps(check=lambda key, argv: key in present)
-        titles = {a.title for a in apps}
-        self.assertEqual(titles, {"Steam", "Firefox"})
-        self.assertTrue(all(a.source == "app" for a in apps))
+        return from_apps(which=lambda b: b in native,
+                         flatpak_has=lambda i: i in flatpaks,
+                         launcher_present=launcher)
+
+    def test_flatpak_apps_resolve_through_launcher(self):
+        apps = self._apps(flatpaks={"com.valvesoftware.Steam", "org.mozilla.firefox"})
+        self.assertEqual([a.title for a in apps], ["Steam", "Firefox"])
+        self.assertEqual(apps[0].launch_argv,
+                         ["fusion-launch", "flatpak", "run",
+                          "com.valvesoftware.Steam", "-gamepadui"])
+
+    def test_native_wins_over_flatpak(self):
+        apps = self._apps(native={"discord"}, flatpaks={"com.discordapp.Discord"})
+        self.assertEqual(apps[0].launch_argv, ["fusion-launch", "discord"])
+
+    def test_steam_is_listed_first(self):
+        apps = self._apps(flatpaks={"org.mozilla.firefox",
+                                    "com.heroicgameslauncher.hgl",
+                                    "com.valvesoftware.Steam"})
+        self.assertEqual(apps[0].title, "Steam")
+
+    def test_no_launcher_runs_app_directly(self):
+        apps = self._apps(native={"firefox"}, launcher=False)
+        self.assertEqual(apps[0].launch_argv, ["firefox"])
+
+    def test_nothing_installed(self):
+        self.assertEqual(self._apps(), [])
 
     def test_app_label_tag(self):
-        from fusionshell.library import from_apps
-        apps = from_apps(check=lambda key, argv: key == "discord")
+        apps = self._apps(native={"discord"})
         self.assertIn("[APP] Discord", apps[0].label())
+
+
+class TestProfileCommand(unittest.TestCase):
+    def test_unprivileged_uses_scoped_sudo(self):
+        from fusionshell.cli import profile_command
+        self.assertEqual(profile_command("EXTREME", euid=1000),
+                         ["sudo", "-n", "/usr/bin/fusion-opt", "apply",
+                          "extreme", "--real"])
+
+    def test_root_runs_directly(self):
+        from fusionshell.cli import profile_command
+        self.assertEqual(profile_command("LOW", euid=0)[0], "/usr/bin/fusion-opt")
 
 
 class TestGamepad(unittest.TestCase):

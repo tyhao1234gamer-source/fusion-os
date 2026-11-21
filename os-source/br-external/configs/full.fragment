@@ -4,7 +4,7 @@
 # console-like session that boots straight into Steam Big Picture.
 # (Last assignment wins, so these replace the overlay/kernel lists above.)
 
-BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/rootfs-overlay $(BR2_EXTERNAL_FUSION_PATH)/board/fusion/overlay-full"
+BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/rootfs-overlay $(BR2_EXTERNAL_FUSION_PATH)/board/fusion/overlay-generated $(BR2_EXTERNAL_FUSION_PATH)/board/fusion/overlay-full"
 BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/linux-fragment.config $(BR2_EXTERNAL_FUSION_PATH)/board/fusion/linux-gaming.config $(BR2_EXTERNAL_FUSION_PATH)/board/fusion/linux-full.config"
 
 # --- Networking: NetworkManager (nmcli drives the setup wizard's Wi-Fi) ---

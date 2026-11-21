@@ -36,6 +36,9 @@ BR2_PACKAGE_WAYLAND_PROTOCOLS=y
 BR2_PACKAGE_SEATD=y
 BR2_PACKAGE_LIBINPUT=y
 BR2_PACKAGE_CAGE=y
+# Keyboard layout data for libxkbcommon: without it the compositor cannot
+# build a keymap and the graphical session does not start at all.
+BR2_PACKAGE_XKEYBOARD_CONFIG=y
 
 # --- Native games / test apps ---
 BR2_PACKAGE_SDL2=y

@@ -1,0 +1,31 @@
+#!/bin/sh
+# fusion-boot-check -- prints a machine-readable boot report to the serial
+# port, if there is one. On a real PC without a serial port this does
+# nothing; under QEMU it is how CI proves the image really boots and that
+# the Fusion tools run.
+port=/dev/ttyS0
+[ -c "$port" ] || exit 0
+# Wait (max ~3 min) until systemd has finished booting.
+i=0
+while [ $i -lt 90 ]; do
+    case "$(systemctl is-system-running 2>/dev/null)" in
+        initializing|starting|"") sleep 2; i=$((i + 1)) ;;
+        *) break ;;
+    esac
+done
+{
+    echo "FUSION_BOOT_BEGIN"
+    echo "os: $(. /etc/os-release && echo "$PRETTY_NAME")"
+    echo "kernel: $(uname -r)"
+    echo "libc: $(ldd --version 2>&1 | head -n 1)"
+    echo "systemd-state: $(systemctl is-system-running 2>&1)"
+    echo "failed-units: $(systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}' | tr '\n' ' ')"
+    echo "zram: $(grep -c '^/dev/zram' /proc/swaps 2>/dev/null)"
+    for t in fusion-detect fusion-opt fusion-shell fusion-setup fusion-launch flatpak cage NetworkManager; do
+        if command -v "$t" >/dev/null 2>&1; then echo "tool: $t present"; else echo "tool: $t absent"; fi
+    done
+    echo "fusion-opt:"; fusion-opt list 2>&1 | head -n 4
+    echo "fusion-detect:"; fusion-detect --json 2>&1 | head -n 12
+    command -v flatpak >/dev/null && echo "flatpak-version: $(flatpak --version 2>&1)"
+    echo "FUSION_BOOT_OK"
+} > "$port" 2>&1

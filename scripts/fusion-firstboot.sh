@@ -65,7 +65,8 @@ fi
 
 # --- 4. Preinstalled extra app: Heroic (Epic Games) via flatpak -------
 # Epic has no native Linux client; Heroic is the standard launcher for it.
-if command -v flatpak >/dev/null 2>&1; then
+# On the from-source edition fusion-apps installs it (per user) instead.
+if command -v flatpak >/dev/null 2>&1 && [ ! -x /usr/bin/fusion-apps ]; then
     if ping -c1 -W2 flathub.org >/dev/null 2>&1; then
         echo ">> installing Heroic Games Launcher (Epic/GOG) via flatpak"
         flatpak remote-add --if-not-exists flathub \

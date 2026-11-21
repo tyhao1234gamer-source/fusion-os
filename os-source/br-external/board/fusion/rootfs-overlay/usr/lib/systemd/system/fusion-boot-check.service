@@ -1,0 +1,13 @@
+[Unit]
+Description=Fusion OS boot report on the serial port (used by the CI boot test)
+ConditionPathExists=/dev/ttyS0
+
+[Service]
+# simple, not oneshot: the script waits for boot to finish, so it must not
+# be part of what the boot waits for (and no After=multi-user.target, which
+# would be an ordering cycle with WantedBy=multi-user.target).
+Type=simple
+ExecStart=/usr/sbin/fusion-boot-check
+
+[Install]
+WantedBy=multi-user.target

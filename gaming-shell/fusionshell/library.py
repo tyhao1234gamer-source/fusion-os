@@ -99,16 +99,29 @@ def from_steam(steamapps_dir: str | None = None) -> list[GameEntry]:
     return out
 
 
-# Preinstalled apps shown as launchable tiles. A command of [] means "detect";
-# `from_apps` keeps only the ones actually present.
-_APPS = [
-    ("Steam",   "steam",   ["steam", "-gamepadui"]),
-    ("Discord", "discord", ["discord"]),
-    ("Firefox", "firefox", ["firefox"]),
-    # Epic/GOG via Heroic (flatpak) -- Epic has no native Linux client.
-    ("Epic (Heroic)", "flatpak-heroic",
-     ["flatpak", "run", "com.heroicgameslauncher.hgl"]),
-]
+# Bundled apps shown as launchable tiles, Steam first. Each app can come as a
+# native package (Arch edition) or from Flathub (from-source edition); the
+# first one present wins. Everything is launched through `fusion-launch`,
+# which starts the fullscreen compositor when no display is running yet.
+@dataclass(frozen=True)
+class App:
+    title: str
+    key: str
+    native: tuple                 # argv when installed natively
+    flatpak_id: str               # Flathub ID
+    flatpak_args: tuple = ()
+
+
+APPS = (
+    App("Steam", "steam", ("steam", "-gamepadui"),
+        "com.valvesoftware.Steam", ("-gamepadui",)),
+    App("Discord", "discord", ("discord",), "com.discordapp.Discord"),
+    # Epic has no native Linux client: Heroic is the standard way to run it.
+    App("Epic (Heroic)", "heroic", ("heroic",), "com.heroicgameslauncher.hgl"),
+    App("Firefox", "firefox", ("firefox",), "org.mozilla.firefox"),
+)
+
+LAUNCHER = "fusion-launch"
 
 
 def _which(binary: str) -> bool:
@@ -118,6 +131,8 @@ def _which(binary: str) -> bool:
 
 def _flatpak_installed(app_id: str) -> bool:
     import subprocess
+    if not _which("flatpak"):
+        return False
     try:
         out = subprocess.run(["flatpak", "info", app_id], capture_output=True,
                              timeout=5)
@@ -126,28 +141,35 @@ def _flatpak_installed(app_id: str) -> bool:
         return False
 
 
-def from_apps(check=None) -> list[GameEntry]:
-    """Preinstalled apps that are actually present on the system."""
-    check = check or _default_app_check
+def resolve_app(app: App, which=_which, flatpak_has=_flatpak_installed,
+                launcher_present=None) -> list[str] | None:
+    """Return the argv to launch `app`, or None if it is not installed."""
+    if which(app.native[0]):
+        argv = list(app.native)
+    elif flatpak_has(app.flatpak_id):
+        argv = ["flatpak", "run", app.flatpak_id, *app.flatpak_args]
+    else:
+        return None
+    present = which(LAUNCHER) if launcher_present is None else launcher_present
+    return [LAUNCHER, *argv] if present else argv
+
+
+def from_apps(which=_which, flatpak_has=_flatpak_installed,
+              launcher_present=None) -> list[GameEntry]:
+    """Bundled apps that are actually installed, in menu order."""
     out: list[GameEntry] = []
-    for title, key, argv in _APPS:
-        if not check(key, argv):
+    for app in APPS:
+        argv = resolve_app(app, which, flatpak_has, launcher_present)
+        if argv is None:
             continue
-        out.append(GameEntry(key=f"app:{key}", title=title, source="app",
-                             launch_argv=argv, subtitle="app"))
+        out.append(GameEntry(key=f"app:{app.key}", title=app.title,
+                             source="app", launch_argv=argv, subtitle="app"))
     return out
 
 
-def _default_app_check(key: str, argv: list[str]) -> bool:
-    if key == "flatpak-heroic":
-        return _which("flatpak") and _flatpak_installed("com.heroicgameslauncher.hgl")
-    return _which(argv[0])
-
-
 def build_library(root: str | None = None,
-                  steamapps_dir: str | None = None,
-                  app_check=None) -> list[GameEntry]:
+                  steamapps_dir: str | None = None) -> list[GameEntry]:
     games = from_compat_profiles(root) + from_steam(steamapps_dir)
     games.sort(key=lambda g: g.title.lower())
     # Apps go first so they're easy to reach; games follow alphabetically.
-    return from_apps(app_check) + games
+    return from_apps() + games

@@ -1,0 +1,13 @@
+# Universal hardware auto-configuration, once, on the first boot.
+[Unit]
+Description=Fusion OS first-boot hardware auto-configuration
+After=local-fs.target
+ConditionPathExists=!/etc/fusion/.firstboot-done
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/fusion-firstboot
+
+[Install]
+WantedBy=multi-user.target

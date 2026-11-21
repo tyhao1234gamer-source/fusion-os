@@ -10,18 +10,14 @@ if [ "$(tty)" = "/dev/tty1" ] && [ -z "${FUSION_SESSION_STARTED:-}" ]; then
     # 2. Reversible performance baseline for the session.
     sudo -n /usr/bin/fusion-opt apply balanced --real >/dev/null 2>&1
 
-    # 3. First time only: Steam, Discord, Epic (Heroic), Firefox from Flathub.
+    # 3. First time only: Steam, Discord, Epic (Heroic), Firefox, MangoHud and
+    #    gamescope from Flathub. Steam is installed; logging into it is up to
+    #    the user, later, inside Steam.
     [ -f "$HOME/.local/share/fusion/apps-installed" ] || /usr/bin/fusion-apps
 
-    # 4. Session: Steam Big Picture fullscreen in cage (Wayland + Xwayland).
-    export XDG_RUNTIME_DIR="/tmp/xdg-runtime-$(id -u)"
-    mkdir -p "$XDG_RUNTIME_DIR" && chmod 0700 "$XDG_RUNTIME_DIR"
-    export XDG_SESSION_TYPE=wayland
-    if flatpak info com.valvesoftware.Steam >/dev/null 2>&1; then
-        exec dbus-run-session -- cage -- \
-            flatpak run com.valvesoftware.Steam -gamepadui
-    fi
-
-    # Fallback (no Steam yet, e.g. offline): the Fusion Gaming Shell.
+    # 4. The Fusion menu: Steam first, then Discord, Epic, Firefox and any
+    #    Windows games added with fusion-compat. Each app opens fullscreen
+    #    (fusion-launch starts the compositor); closing it ends this login,
+    #    getty logs in again and the menu comes back.
     exec /usr/bin/fusion-shell
 fi

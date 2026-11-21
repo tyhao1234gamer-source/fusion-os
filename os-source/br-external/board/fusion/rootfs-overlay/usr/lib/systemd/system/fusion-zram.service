@@ -1,0 +1,13 @@
+[Unit]
+Description=Fusion OS compressed swap in RAM (zram)
+DefaultDependencies=no
+After=systemd-modules-load.service
+Before=swap.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/fusion-zram
+
+[Install]
+WantedBy=swap.target

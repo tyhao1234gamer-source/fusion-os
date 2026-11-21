@@ -1,0 +1,24 @@
+#!/bin/sh
+# fusion-zram -- compressed swap in RAM, sized to the machine: half the RAM,
+# capped at 8 GiB (same rule as fusion-detect's tuning plan). Replaces
+# zram-generator, which Buildroot does not package. Idempotent.
+set -u
+grep -q '^/dev/zram' /proc/swaps 2>/dev/null && exit 0
+[ -e /dev/zram0 ] || modprobe zram 2>/dev/null || true
+
+mem_kb=$(sed -n 's/^MemTotal: *\([0-9]*\).*/\1/p' /proc/meminfo)
+size_kb=$((mem_kb / 2))
+max_kb=$((8 * 1024 * 1024))
+[ "$size_kb" -gt "$max_kb" ] && size_kb=$max_kb
+
+dev=""
+for alg in zstd lz4 lzo-rle lzo; do
+    dev=$(zramctl --find --size "${size_kb}K" --algorithm "$alg" 2>/dev/null) && break
+    dev=""
+done
+if [ -z "$dev" ]; then
+    echo "fusion-zram: could not set up zram (kernel without zram?)" >&2
+    exit 0
+fi
+mkswap "$dev" >/dev/null && swapon -p 100 "$dev" \
+    && echo "fusion-zram: $dev ${size_kb}K ($alg)"

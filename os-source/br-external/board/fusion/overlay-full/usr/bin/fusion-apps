@@ -25,6 +25,19 @@ for app in $APPS; do
     flatpak --user install -y --noninteractive flathub "$app" || ok=0
 done
 
+# Steam extras: MangoHud (FPS / frametime overlay) and gamescope. They are
+# Flatpak extensions whose branch must match the runtime Steam uses, so read
+# it from Steam instead of hard-coding it.
+rt=$(flatpak --user info --show-runtime com.valvesoftware.Steam 2>/dev/null)
+branch=${rt##*/}
+if [ -n "$branch" ] && [ "$branch" != "$rt" ]; then
+    echo "  -> MangoHud + gamescope (runtime $branch)"
+    flatpak --user install -y --noninteractive flathub \
+        "org.freedesktop.Platform.VulkanLayer.MangoHud//$branch" || true
+    flatpak --user install -y --noninteractive flathub \
+        "org.freedesktop.Platform.VulkanLayer.gamescope//$branch" || true
+fi
+
 if [ "$ok" = 1 ]; then
     mkdir -p "$(dirname "$STAMP")" && : > "$STAMP"
     echo "  Aplicacoes instaladas."

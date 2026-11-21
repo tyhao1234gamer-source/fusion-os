@@ -2,4 +2,4 @@
 # Let the autologin 'fusion' session apply performance settings without a
 # password prompt -- scoped to exactly the Fusion tools, nothing else.
 # (Validated with visudo -cf before install.)
-fusion ALL=(root) NOPASSWD: /usr/bin/fusion-opt, /usr/bin/fusion-gpu, /usr/bin/fusion-setup, /usr/bin/fusion-firstboot, /usr/bin/fusion-perf-baseline
+fusion ALL=(root) NOPASSWD: /usr/bin/fusion-opt, /usr/bin/fusion-gpu, /usr/bin/fusion-setup, /usr/bin/fusion-firstboot, /usr/bin/fusion-perf-baseline, /usr/sbin/fusion-install-disk
