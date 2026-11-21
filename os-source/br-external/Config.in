@@ -2,4 +2,5 @@ menu "Fusion OS packages"
 	source "$BR2_EXTERNAL_FUSION_PATH/package/appstream/Config.in"
 	source "$BR2_EXTERNAL_FUSION_PATH/package/ostree/Config.in"
 	source "$BR2_EXTERNAL_FUSION_PATH/package/flatpak/Config.in"
+	source "$BR2_EXTERNAL_FUSION_PATH/package/fusion-firmware-extra/Config.in"
 endmenu

@@ -13,8 +13,28 @@ while [ $i -lt 90 ]; do
         *) break ;;
     esac
 done
+# CI installer self-test: "fusion.selftest=install:sdb" on the kernel command
+# line runs the real installer onto that (blank, throw-away) QEMU disk.
+target=$(tr ' ' '\n' < /proc/cmdline | sed -n 's/^fusion\.selftest=install://p')
+if [ -n "$target" ] && [ -b "/dev/$target" ]; then
+    echo "FUSION_INSTALL_BEGIN $target" > "$port"
+    # Stop the tty1 session first, so nothing (e.g. app downloads) changes
+    # files while the system is being copied.
+    systemctl stop getty@tty1.service 2>/dev/null || true
+    if printf '%s\nAPAGAR\n' "$target" | fusion-install-disk > "$port" 2>&1; then
+        echo "FUSION_INSTALL_OK" > "$port"
+    else
+        echo "FUSION_INSTALL_FAILED" > "$port"
+    fi
+fi
 {
     echo "FUSION_BOOT_BEGIN"
+    if [ -d /sys/firmware/efi ]; then
+        echo "firmware: UEFI $(cat /sys/firmware/efi/fw_platform_size 2>/dev/null)-bit"
+    else
+        echo "firmware: BIOS (legacy)"
+    fi
+    echo "root: $(findmnt -no SOURCE / 2>/dev/null) $(lsblk -no PARTUUID "$(findmnt -no SOURCE /)" 2>/dev/null)"
     echo "os: $(. /etc/os-release && echo "$PRETTY_NAME")"
     echo "kernel: $(uname -r)"
     echo "libc: $(ldd --version 2>&1 | head -n 1)"

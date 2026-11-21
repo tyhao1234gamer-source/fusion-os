@@ -31,7 +31,7 @@ class GameEntry:
 
     def label(self) -> str:
         tag = {"windows": "[WIN]", "steam": "[STEAM]",
-               "app": "[APP]"}.get(self.source, "")
+               "app": "[APP]", "system": "[SYS]"}.get(self.source, "")
         return f"{tag} {self.title}"
 
 
@@ -167,9 +167,26 @@ def from_apps(which=_which, flatpak_has=_flatpak_installed,
     return out
 
 
+# System tools, at the end of the menu. They run in the text console (not in
+# the compositor) and only appear when the tool exists on this system.
+SYSTEM_TOOLS = (
+    ("bluetooth", "Bluetooth: ligar um comando/auscultadores",
+     "fusion-bluetooth", ["fusion-bluetooth"]),
+    ("install", "Instalar o Fusion OS no disco do PC",
+     "fusion-install-disk", ["sudo", "fusion-install-disk"]),
+)
+
+
+def from_system(which=_which) -> list[GameEntry]:
+    return [GameEntry(key=f"sys:{key}", title=title, source="system",
+                      launch_argv=argv, subtitle="system")
+            for key, title, binary, argv in SYSTEM_TOOLS if which(binary)]
+
+
 def build_library(root: str | None = None,
                   steamapps_dir: str | None = None) -> list[GameEntry]:
     games = from_compat_profiles(root) + from_steam(steamapps_dir)
     games.sort(key=lambda g: g.title.lower())
-    # Apps go first so they're easy to reach; games follow alphabetically.
-    return from_apps() + games
+    # Apps go first so they're easy to reach; games follow alphabetically;
+    # system tools last.
+    return from_apps() + games + from_system()

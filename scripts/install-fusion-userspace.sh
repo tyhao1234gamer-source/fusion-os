@@ -70,6 +70,7 @@ sed -i 's#"\$HERE/../compatibility-manager/fusion-compat"#fusion-compat#g; s#"\$
 # Vendor-aware GPU helper, universal first-boot auto-config, perf baseline.
 install -Dm755 "$REPO/optimizer/fusion-gpu"           "$BIN/fusion-gpu"
 install -Dm755 "$REPO/gaming-shell/fusion-launch"     "$BIN/fusion-launch"
+install -Dm755 "$REPO/gaming-shell/fusion-bluetooth"  "$BIN/fusion-bluetooth"
 install -Dm755 "$REPO/scripts/fusion-firstboot.sh"    "$BIN/fusion-firstboot"
 install -Dm755 "$REPO/scripts/fusion-perf-baseline.sh" "$BIN/fusion-perf-baseline"
 

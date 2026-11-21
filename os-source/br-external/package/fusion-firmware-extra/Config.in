@@ -1,0 +1,7 @@
+config BR2_PACKAGE_FUSION_FIRMWARE_EXTRA
+	bool "fusion-firmware-extra"
+	help
+	  Firmware that Buildroot's linux-firmware package has no option
+	  for: Qualcomm Wi-Fi 6/6E/7 laptop cards (ath11k WCN6855/QCA6390/
+	  QCA2066, ath12k WCN7850) and their Bluetooth parts. Taken from the
+	  same upstream linux-firmware release as Buildroot's package.

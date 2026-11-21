@@ -39,7 +39,33 @@ export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/xdg-runtime-$(id -u)}"
 mkdir -p "$XDG_RUNTIME_DIR" && chmod 0700 "$XDG_RUNTIME_DIR"
 export XDG_SESSION_TYPE=wayland
 
-if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
-    exec dbus-run-session -- cage -- "$@"
+# Graphics fallback. The compositor renders with the system Mesa (games use
+# the Flatpak runtime's own, newer Mesa). If no GPU driver is bound -- a GPU
+# newer than this kernel, or only the firmware framebuffer -- there is no
+# render node, so use wlroots' software renderer instead of a black screen.
+DRI="${FUSION_DRI_DIR:-/dev/dri}"
+if [ -z "${WLR_RENDERER:-}" ] && ! ls "$DRI"/renderD* >/dev/null 2>&1; then
+    echo "fusion-launch: sem driver de GPU, a usar renderizacao por software" >&2
+    export WLR_RENDERER=pixman
 fi
-exec cage -- "$@"
+
+run_cage() {
+    if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
+        dbus-run-session -- cage -- "$@"
+    else
+        cage -- "$@"
+    fi
+}
+
+start=$(date +%s)
+run_cage "$@"
+rc=$?
+# GPU present but the GL renderer failed to start (Mesa too old for the GPU):
+# cage dies within seconds. Retry once with the software renderer.
+if [ "$rc" -ne 0 ] && [ -z "${WLR_RENDERER:-}" ] && [ $(( $(date +%s) - start )) -lt 5 ]; then
+    echo "fusion-launch: o renderizador da GPU falhou, a tentar por software" >&2
+    export WLR_RENDERER=pixman
+    run_cage "$@"
+    rc=$?
+fi
+exit "$rc"

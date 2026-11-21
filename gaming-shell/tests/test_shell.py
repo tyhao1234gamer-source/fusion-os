@@ -117,5 +117,27 @@ class TestGamepad(unittest.TestCase):
         self.assertIsNone(gamepad.decode(data))
 
 
+
+
+class TestSystemTools(unittest.TestCase):
+    def test_tools_only_when_present(self):
+        from fusionshell.library import from_system
+        none = from_system(which=lambda b: False)
+        self.assertEqual(none, [])
+        both = from_system(which=lambda b: True)
+        self.assertEqual([g.key for g in both], ["sys:bluetooth", "sys:install"])
+        self.assertEqual(both[1].launch_argv, ["sudo", "fusion-install-disk"])
+        self.assertTrue(both[0].label().startswith("[SYS]"))
+
+    def test_system_tool_skips_game_profile(self):
+        from unittest import mock
+        from fusionshell import cli
+        g = GameEntry(key="sys:x", title="x", source="system", launch_argv=["true"])
+        with mock.patch.object(cli, "_apply_profile") as ap, \
+             mock.patch.object(cli.subprocess, "call", return_value=0):
+            cli.launch_game(g, "balanced")
+        ap.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

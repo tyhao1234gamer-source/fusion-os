@@ -1,0 +1,55 @@
+#!/bin/sh
+# fusion-bluetooth -- pair a wireless controller or headset, step by step.
+#
+# Uses BlueZ's bluetoothctl. Put the device in pairing mode first:
+#   DualSense / DualShock 4: hold SHARE (CREATE) + PS until the light flashes
+#   Xbox (Bluetooth models): hold the pairing button on top until the logo flashes
+#   Switch Pro: hold the small sync button on top
+# FUSION_BT_SCAN_SECONDS / FUSION_BT_CTL exist for the tests.
+
+CTL=${FUSION_BT_CTL:-bluetoothctl}
+SCAN=${FUSION_BT_SCAN_SECONDS:-20}
+
+command -v "$CTL" >/dev/null 2>&1 || { echo "Bluetooth nao esta instalado nesta edicao."; exit 1; }
+
+if ! "$CTL" show 2>/dev/null | grep -q "^Controller"; then
+    echo "Nao encontrei nenhum adaptador Bluetooth neste PC."
+    echo "(Se tiver um, pode estar desligado na BIOS ou precisar de firmware.)"
+    printf "Enter para voltar ao menu. "; read -r _
+    exit 1
+fi
+
+"$CTL" power on >/dev/null 2>&1
+"$CTL" agent NoInputNoOutput >/dev/null 2>&1
+"$CTL" default-agent >/dev/null 2>&1
+
+echo "Poe o comando/auscultadores em modo de emparelhamento AGORA."
+echo "A procurar durante ${SCAN}s..."
+"$CTL" --timeout "$SCAN" scan on >/dev/null 2>&1
+
+list=$("$CTL" devices | sed -n 's/^Device \([0-9A-F:]\{17\}\) \(.*\)$/\1 \2/p')
+if [ -z "$list" ]; then
+    echo "Nao encontrei nada. Confirma o modo de emparelhamento e tenta outra vez."
+    printf "Enter para voltar ao menu. "; read -r _
+    exit 1
+fi
+
+echo
+echo "$list" | awk '{mac=$1; $1=""; printf "  %d)%s  [%s]\n", NR, $0, mac}'
+echo
+printf "Numero do dispositivo (Enter para cancelar): "
+read -r n
+case "$n" in ''|*[!0-9]*) echo "Cancelado."; exit 0 ;; esac
+mac=$(echo "$list" | sed -n "${n}p" | cut -d' ' -f1)
+[ -n "$mac" ] || { echo "Numero invalido."; exit 1; }
+
+echo "A emparelhar $mac..."
+"$CTL" pair "$mac" && "$CTL" trust "$mac" && "$CTL" connect "$mac"
+rc=$?
+if [ $rc = 0 ]; then
+    echo "Ligado. Da proxima vez liga sozinho ao carregar no botao PS/Xbox/Home."
+else
+    echo "Nao consegui ligar (erro $rc). Tenta outra vez com o dispositivo em modo de emparelhamento."
+fi
+printf "Enter para voltar ao menu. "; read -r _
+exit $rc

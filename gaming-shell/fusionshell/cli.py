@@ -39,8 +39,9 @@ def _apply_profile(profile: str) -> None:
 
 
 def launch_game(game: GameEntry, profile: str) -> int:
-    print(f"profile: {profile}")
-    _apply_profile(profile)
+    if game.source != "system":          # tools don't need a game profile
+        print(f"profile: {profile}")
+        _apply_profile(profile)
     print("launch:", " ".join(game.launch_argv))
     try:
         return subprocess.call(game.launch_argv)

@@ -22,9 +22,10 @@ What is still inherited (by necessity — nobody writes these from scratch):
 
 Push and run the **"Build Fusion OS from source (Buildroot)"** workflow
 (`.github/workflows/build-os.yml`). GitHub compiles everything from source
-(~60-120 min) and uploads **`fusion-os.img`** — a USB-bootable UEFI disk image.
+(~60-120 min) and uploads **`fusion-os.img`** — one disk image that boots on
+**legacy BIOS and on UEFI (64- and 32-bit)**, from USB, SATA, NVMe or eMMC.
 
-Write it to a USB and boot (UEFI):
+Write it to a USB and boot it:
 ```
 sudo dd if=fusion-os.img of=/dev/sdX bs=4M status=progress oflag=sync
 ```
@@ -32,7 +33,8 @@ sudo dd if=fusion-os.img of=/dev/sdX bs=4M status=progress oflag=sync
 ## Using the full edition
 
 1. Write `fusion-os.img` to a USB stick (8 GB+; Rufus "DD mode" or
-   balenaEtcher on Windows, `dd` on Linux) and boot it in **UEFI** mode.
+   balenaEtcher on Windows, `dd` on Linux) and boot it. BIOS (Legacy/CSM)
+   and UEFI both work. **Secure Boot must be off** (see below).
 2. GRUB menu: **Fusion OS** (max performance, CPU mitigations off),
    **safe** (mitigations on) or **recovery shell**.
 3. First boot: the setup screen asks region, time zone, keyboard and
@@ -42,14 +44,32 @@ sudo dd if=fusion-os.img of=/dev/sdX bs=4M status=progress oflag=sync
 5. The **Fusion menu** opens: Steam first. Arrow keys / D-pad to move,
    Enter / A to open, Y to change the performance profile, B to quit.
    Closing an app brings the menu back. Log into Steam only if you want to.
-6. To install on the internal disk: switch to a second console
-   (Ctrl+Alt+F2, log in as `root`, password `fusion`) and run
-   `fusion-install-disk`. It erases the chosen disk only after you type its
-   name **and** `APAGAR`.
+6. **Bluetooth controllers** (DualSense, DualShock 4, Xbox, Switch Pro):
+   menu entry *Bluetooth: ligar um comando* (full edition).
+7. **Install on the PC's disk**: menu entry *Instalar o Fusion OS no disco*
+   (or `sudo fusion-install-disk`). It lists the disks with their type
+   (NVMe / SSD / HDD / USB / eMMC), refuses the USB you booted from and any
+   mounted disk, and erases the chosen disk only after you type its name
+   **and** `APAGAR`. The installed system boots on BIOS and UEFI, like the
+   USB. Only the space in use is needed on the target, not the USB's size.
 
-Every CI build also boots the image in QEMU (UEFI firmware, SATA disk) and
-fails unless the system reports `FUSION_BOOT_OK` with the Fusion tools
-running (see the `boot-test-<edition>` artifact).
+### Secure Boot
+
+Fusion OS cannot boot with Secure Boot **on**: that needs a boot loader
+signed by Microsoft, which only large distributions obtain. Turn it off in
+the firmware setup (usually *Security* or *Boot* > *Secure Boot* >
+*Disabled*). Windows on the same PC keeps working.
+
+### What every CI build tests
+
+The image is booted in QEMU on SATA disks and must report `FUSION_BOOT_OK`
+with the Fusion tools running, on **UEFI 64-bit** and on **legacy BIOS**.
+Also tested: 32-bit UEFI firmware (reported separately), and a full
+**install test**: the installer runs inside the booted image onto a blank
+disk, then that disk alone must boot (on BIOS) with its own root PARTUUID.
+The kernel's final `.config` is checked against our fragments and published.
+Logs: the `boot-test-<edition>` artifact. This is emulated hardware; real
+machines still need real tests.
 
 ## Build it locally (needs a Linux host + internet, no Arch required)
 
@@ -65,9 +85,9 @@ make -C buildroot O="$PWD/output"
 
 | Edition | What it adds | Defconfig |
 |---|---|---|
-| `base` | boots from USB on any UEFI PC, Fusion tools, setup wizard | `fusion_x86_64_defconfig` |
+| `base` | boots on any x86-64 PC (BIOS or UEFI), Fusion tools, setup wizard, installer, wired network (Intel, Realtek incl. USB adapters, Broadcom, Atheros...) | `fusion_x86_64_defconfig` |
 | `gaming` | + Mesa 24 (OpenGL: AMD radeonsi, Intel iris, nouveau), Vulkan (Intel ANV, lavapipe), GPU firmware, Wayland + `cage` fullscreen session, SDL2, PipeWire audio | base + `gaming.fragment` |
-| `full` | + NetworkManager & Wi-Fi firmware (setup-screen Wi-Fi), **Flatpak** (our own ostree/appstream/flatpak packages), Xwayland, unprivileged `fusion` session that boots into **Steam Big Picture**; Steam, Discord, Epic (Heroic) and Firefox come from Flathub, root partition grows to the whole disk | gaming + `full.fragment` |
+| `full` | + NetworkManager & Wi-Fi firmware (Intel, Realtek, MediaTek incl. Wi-Fi 7, Qualcomm ath9k/10k/11k/12k, Broadcom), Bluetooth (BlueZ + firmware), **Flatpak** (our own ostree/appstream/flatpak packages), Xwayland, unprivileged `fusion` session that boots into **Steam Big Picture**; Steam, Discord, Epic (Heroic) and Firefox come from Flathub, root partition grows to the whole disk | gaming + `full.fragment` |
 
 Pick the edition in the workflow's **Run workflow** dialog.
 
@@ -87,6 +107,11 @@ as a broken system an hour later).
   get OpenGL now, Vulkan needs an extra package override.
 - **NVIDIA**: Buildroot ships no NVIDIA firmware, so NVIDIA cards run nouveau
   without GSP firmware (limited performance).
+- **Newest GPUs** (AMD RDNA4) need a newer kernel than 6.12; until then the
+  menu falls back to software rendering instead of a black screen.
+- **Intel laptop audio with SOF** (most Intel laptops since ~2020): no SOF
+  firmware yet, so internal speakers/mic may not work; HDMI and USB audio do.
+- **32-bit-only CPUs and ARM** are not supported (Steam/Proton are x86-64).
 
 ## Status (honest)
 

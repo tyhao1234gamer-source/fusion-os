@@ -50,9 +50,10 @@ class Profile:
     game_cpuset: str = ""
 
 
-# Non-gaming services that are safe to stop while gaming on a single-user PS4.
+# Non-gaming services that are safe to stop while gaming on a single-user PC.
+# bluetooth.service is NOT here: wireless controllers (DualSense, Xbox,
+# Switch Pro) and headsets need it, and an idle bluetoothd costs ~nothing.
 _HEAVY_SERVICES = [
-    ServiceAction("stop", "bluetooth.service"),
     ServiceAction("stop", "cups.service"),
     ServiceAction("stop", "ModemManager.service"),
     ServiceAction("stop", "systemd-timesyncd.service"),
@@ -133,7 +134,7 @@ PROFILES: dict[str, Profile] = {
             Tunable("dirty_ratio", DIRTY_RATIO, "20"),
             Tunable("io_scheduler", IO_SCHED, "mq-deadline"),
         ],
-        services=[ServiceAction("stop", "bluetooth.service")],
+        services=[],
         game_cpuset="",
     ),
     "low": Profile(

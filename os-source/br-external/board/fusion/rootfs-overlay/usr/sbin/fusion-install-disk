@@ -1,0 +1,172 @@
+#!/bin/sh
+# fusion-install-disk -- install the running Fusion OS (from the USB you
+# booted) onto an internal disk: NVMe, SATA SSD/HDD, eMMC or another USB.
+# The installed system boots on legacy BIOS and on UEFI (64- and 32-bit),
+# exactly like the USB image.
+#
+# !! DESTRUCTIVE: EVERYTHING on the target disk is erased. !!
+# It writes nothing until you type the target disk name AND the word APAGAR.
+# Run as root:  sudo fusion-install-disk
+#
+# How: same partition layout as the image (ESP, BIOS boot, root), the boot
+# partitions copied block by block, a NEW ext4 root sized to the whole target
+# disk, and the running root filesystem copied file by file. So the target
+# only has to hold the files in use, not be as big as the USB.
+set -eu
+
+ESP_T=C12A7328-F81F-11D2-BA4B-00A0C93EC93B
+BIOS_T=21686148-6449-6E61-6F74-656E65656646
+ROOT_T=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709
+ROOT_T_OLD=44479540-F297-41B2-9AF7-D131D5F0458A   # images made before 2026-11
+
+die() { echo "erro: $*" >&2; exit 1; }
+
+# /dev/sda + 1 -> /dev/sda1 ; /dev/nvme0n1 + 1 -> /dev/nvme0n1p1
+partdev() {
+    case "$1" in
+        *[0-9]) echo "${1}p$2" ;;
+        *) echo "$1$2" ;;
+    esac
+}
+
+# Human label for a disk from lsblk's TRAN and ROTA.
+disk_kind() {   # name tran rota
+    case "$1" in mmcblk*) echo "eMMC/SD"; return ;; esac
+    case "$2" in
+        nvme) echo "SSD NVMe" ;;
+        usb) echo "USB" ;;
+        *) if [ "$3" = 1 ]; then echo "HDD (disco rigido)"; else echo "SSD"; fi ;;
+    esac
+}
+
+# Read `sfdisk -d <source>` on stdin and print the sfdisk script for the
+# target: same starts/sizes/types for the ESP and BIOS boot partitions, root
+# at the same start but filling the disk, fresh UUIDs, root UUID = $1.
+make_layout() {
+    awk -v rootuuid="$1" -v esp="$ESP_T" -v bios="$BIOS_T" \
+        -v root="$ROOT_T" -v rootold="$ROOT_T_OLD" '
+    function field(line, key,   m) {
+        if (match(line, key "= *[^,]*")) {
+            m = substr(line, RSTART, RLENGTH); sub(/^[^=]*= */, "", m); return m
+        }
+        return ""
+    }
+    /^label:/ { if ($2 != "gpt") { print "ERR not-gpt"; exit 1 } }
+    / : start=/ {
+        t = toupper(field($0, "type")); s = field($0, "start"); z = field($0, "size")
+        if (t == esp)       { esps = s; espz = z; n++ }
+        else if (t == bios) { bioss = s; biosz = z; n++ }
+        else if (t == root || t == rootold) { roots = s; n++ }
+    }
+    END {
+        if (n != 3 || esps == "" || bioss == "" || roots == "") { print "ERR layout"; exit 1 }
+        print "label: gpt"
+        print "unit: sectors"
+        print "start=" esps ", size=" espz ", type=" esp
+        print "start=" bioss ", size=" biosz ", type=" bios
+        print "start=" roots ", type=" root ", uuid=" rootuuid
+    }'
+}
+
+# Rewrite the root PARTUUID in both GRUB menus of a mounted ESP.
+retarget_grub() {   # esp_mount old new
+    for cfg in "$1/EFI/BOOT/grub.cfg" "$1/boot/grub/grub.cfg"; do
+        [ -f "$cfg" ] && sed -i "s/$2/$3/g" "$cfg"
+    done
+    grep -q "$3" "$1/EFI/BOOT/grub.cfg" || die "nao consegui atualizar o grub.cfg"
+}
+
+# Tests source this file with FUSION_INSTALL_LIB=1 to get only the functions.
+if [ "${FUSION_INSTALL_LIB:-0}" = 1 ]; then return 0; fi
+
+main() {
+    [ "$(id -u)" = 0 ] || die "corre como root: sudo fusion-install-disk"
+    for t in sfdisk lsblk findmnt blkid blockdev mkfs.ext4 dd awk; do
+        command -v "$t" >/dev/null 2>&1 || die "falta a ferramenta '$t' nesta imagem"
+    done
+
+    root_part=$(findmnt -no SOURCE /)
+    src=/dev/$(lsblk -no PKNAME "$root_part" | head -n 1)
+    [ "$src" != "/dev/" ] || die "nao consegui descobrir o disco de arranque"
+    old_uuid=$(blkid -s PARTUUID -o value "$root_part")
+    [ -n "$old_uuid" ] || die "a particao root nao tem PARTUUID"
+    layout_src=$(sfdisk -d "$src") || die "nao consegui ler a tabela de particoes de $src"
+    echo "$layout_src" | make_layout 00000000-0000-0000-0000-000000000000 >/dev/null \
+        || die "$src nao tem o layout do Fusion OS (ESP + BIOS boot + root)"
+
+    used_kb=$(df -k / | awk 'NR==2 {print $3}')
+    need=$(( (used_kb * 1024) / 10 * 12 + 256 * 1024 * 1024 ))   # files +20% + boot parts
+
+    echo
+    echo "  Fusion OS - instalar noutro disco"
+    echo "  Arranque atual (origem): $src"
+    echo "  Espaco necessario no destino: ~$((need / 1000000000 + 1)) GB"
+    echo
+    echo "  Discos disponiveis:"
+    lsblk -dnro NAME,SIZE,TRAN,ROTA,TYPE | while read -r name size tran rota type; do
+        [ "$type" = disk ] || continue
+        [ "/dev/$name" = "$src" ] && continue
+        case "$name" in loop*|zram*|sr*|ram*) continue ;; esac
+        model=$(lsblk -dno MODEL "/dev/$name" 2>/dev/null | sed 's/ *$//')
+        printf "    %-10s %8s  %-18s %s\n" "$name" "$size" "$(disk_kind "$name" "$tran" "$rota")" "$model"
+    done
+    echo
+    printf "  Escreve o NOME do disco de destino (ex: nvme0n1, sda, mmcblk0): "
+    read -r tgt
+    tgt="/dev/${tgt#/dev/}"
+    [ -b "$tgt" ] || die "$tgt nao e um disco"
+    [ "$(lsblk -dno TYPE "$tgt")" = disk ] || die "$tgt e uma particao; escolhe o disco inteiro"
+    [ "$tgt" != "$src" ] || die "esse e o disco de onde arrancaste (a pen)"
+    if lsblk -nro MOUNTPOINT "$tgt" | grep -q .; then
+        die "$tgt tem particoes montadas; desmonta-as primeiro"
+    fi
+    if grep -q "^$tgt" /proc/swaps 2>/dev/null; then die "$tgt esta a ser usado como swap"; fi
+    tgt_bytes=$(blockdev --getsize64 "$tgt")
+    [ "$tgt_bytes" -ge "$need" ] || die "o destino e pequeno demais (precisa de ~$((need / 1000000000 + 1)) GB)"
+
+    echo
+    echo "  !!! TUDO o que esta em $tgt vai ser APAGADO para sempre. !!!"
+    printf "  Para confirmar escreve APAGAR: "
+    read -r ok
+    [ "$ok" = "APAGAR" ] || die "cancelado (nada foi escrito)"
+
+    new_uuid=$(cat /proc/sys/kernel/random/uuid)
+    work=$(mktemp -d)
+    trap 'umount "$work/esp" "$work/new" "$work/old" 2>/dev/null; rmdir "$work"/* "$work" 2>/dev/null' EXIT
+    mkdir -p "$work/esp" "$work/new" "$work/old"
+
+    echo "  1/5 A criar as particoes..."
+    echo "$layout_src" | make_layout "$new_uuid" | sfdisk --wipe always --wipe-partitions always -q "$tgt"
+    partx -u "$tgt" 2>/dev/null || blockdev --rereadpt "$tgt"
+    udevadm settle 2>/dev/null || sleep 2
+
+    echo "  2/5 A copiar o arranque (UEFI + BIOS)..."
+    # MBR boot code only (first 440 bytes); the partition table stays the new one.
+    dd if="$src" of="$tgt" bs=440 count=1 conv=notrunc,fsync 2>/dev/null
+    dd if="$(partdev "$src" 1)" of="$(partdev "$tgt" 1)" bs=1M conv=fsync 2>/dev/null
+    dd if="$(partdev "$src" 2)" of="$(partdev "$tgt" 2)" bs=1M conv=fsync 2>/dev/null
+
+    echo "  3/5 A formatar o sistema (ext4)..."
+    mkfs.ext4 -q -F -L fusion-root "$(partdev "$tgt" 3)"
+
+    echo "  4/5 A copiar o sistema (pode demorar varios minutos)..."
+    mount "$(partdev "$tgt" 3)" "$work/new"
+    mount --bind / "$work/old"          # just the root fs, no /proc, /sys, /run...
+    cp -a "$work/old/." "$work/new/"
+    rm -f "$work/new/etc/machine-id"    # new machine identity on first boot
+    : > "$work/new/etc/machine-id"
+    umount "$work/old"
+    umount "$work/new"
+
+    echo "  5/5 A apontar o arranque para o novo disco..."
+    mount "$(partdev "$tgt" 1)" "$work/esp"
+    retarget_grub "$work/esp" "$old_uuid" "$new_uuid"
+    umount "$work/esp"
+    sync
+
+    echo
+    echo "  Pronto. Desliga o PC, tira a pen e escolhe $tgt no menu de arranque"
+    echo "  (funciona em BIOS antiga e em UEFI)."
+}
+
+main "$@"

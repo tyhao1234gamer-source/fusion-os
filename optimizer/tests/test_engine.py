@@ -57,9 +57,15 @@ class TestEngine(unittest.TestCase):
         be = seeded_backend()
         eng = Engine(be, self.tmp)
         eng.apply(resolve("extreme"))
-        self.assertIn(("stop", "bluetooth.service"), be.services)
+        self.assertIn(("stop", "cups.service"), be.services)
         eng.restore()
-        self.assertIn(("start", "bluetooth.service"), be.services)
+        self.assertIn(("start", "cups.service"), be.services)
+
+    def test_no_profile_stops_bluetooth(self):
+        # Wireless game controllers depend on it.
+        for name in ("extreme", "competitive", "balanced", "low"):
+            self.assertNotIn("bluetooth.service",
+                             [s.name for s in resolve(name).services], name)
 
     def test_competitive_pins_half(self):
         self.assertEqual(resolve("competitive").game_cpuset, "half")

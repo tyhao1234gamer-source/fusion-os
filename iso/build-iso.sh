@@ -66,10 +66,17 @@ echo ">> installing the Fusion userspace tools into airootfs"
 echo ">> applying the performance baseline into airootfs (configs, masks, cmdline)"
 "$REPO/scripts/fusion-perf-baseline.sh" "$P/airootfs"
 
+echo ">> live ISO boot menus (UEFI systemd-boot + BIOS syslinux): Fusion cmdline + safe entries"
+python3 "$REPO/iso/live-cmdline.py" "$P" "$REPO/configs/fusion-performance/fusion-cmdline.conf"
+
 echo ">> enabling services (NetworkManager, fusion-firstboot; getty autologin via drop-in)"
 install -d "$P/airootfs/etc/systemd/system/multi-user.target.wants"
 ln -sf /usr/lib/systemd/system/NetworkManager.service \
     "$P/airootfs/etc/systemd/system/multi-user.target.wants/NetworkManager.service"
+# Bluetooth for wireless controllers/headsets (started when an adapter appears).
+install -d "$P/airootfs/etc/systemd/system/bluetooth.target.wants"
+ln -sf /usr/lib/systemd/system/bluetooth.service \
+    "$P/airootfs/etc/systemd/system/bluetooth.target.wants/bluetooth.service"
 # fusion-firstboot runs the universal hardware auto-config on first boot.
 ln -sf /etc/systemd/system/fusion-firstboot.service \
     "$P/airootfs/etc/systemd/system/multi-user.target.wants/fusion-firstboot.service"

@@ -3,7 +3,7 @@
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 fail=0
-for comp in compatibility-manager optimizer benchmarks gaming-shell hardware setup; do
+for comp in compatibility-manager optimizer benchmarks gaming-shell hardware setup os-source iso; do
     dir="$HERE/$comp"
     [ -d "$dir/tests" ] || continue
     echo "== $comp =="

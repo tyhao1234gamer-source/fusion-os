@@ -37,7 +37,7 @@ BR2_PACKAGE_CA_CERTIFICATES=y
 # --- Linux kernel: our config fragment on top of the arch default ---
 BR2_LINUX_KERNEL=y
 BR2_LINUX_KERNEL_CUSTOM_VERSION=y
-BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE="6.12.9"
+BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE="6.12.118"
 BR2_LINUX_KERNEL_USE_ARCH_DEFAULT_CONFIG=y
 BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/linux-fragment.config"
 BR2_LINUX_KERNEL_INSTALL_TARGET=y
@@ -59,9 +59,14 @@ BR2_TARGET_ROOTFS_EXT2=y
 BR2_TARGET_ROOTFS_EXT2_4=y
 BR2_TARGET_ROOTFS_EXT2_SIZE="2G"
 
-# --- Bootloader: GRUB2 for x86-64 UEFI ---
+# --- Bootloader: GRUB2 for legacy BIOS + 64-bit UEFI + 32-bit UEFI ---
+# One hybrid GPT image boots all three (see board/fusion/genimage.cfg).
 BR2_TARGET_GRUB2=y
+BR2_TARGET_GRUB2_I386_PC=y
+BR2_TARGET_GRUB2_I386_EFI=y
 BR2_TARGET_GRUB2_X86_64_EFI=y
+# BIOS core.img prefix: partition 1 (the ESP) of the drive the BIOS booted.
+BR2_TARGET_GRUB2_BOOT_PARTITION=",gpt1"
 
 # --- Rootfs overlay + post scripts (identity, image assembly) ---
 BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/rootfs-overlay $(BR2_EXTERNAL_FUSION_PATH)/board/fusion/overlay-generated $(BR2_EXTERNAL_FUSION_PATH)/board/fusion/overlay-base"
@@ -73,3 +78,15 @@ BR2_ROOTFS_POST_SCRIPT_ARGS="$(BR2_EXTERNAL_FUSION_PATH)/board/fusion/genimage.c
 BR2_PACKAGE_HOST_GENIMAGE=y
 BR2_PACKAGE_HOST_DOSFSTOOLS=y
 BR2_PACKAGE_HOST_MTOOLS=y
+
+# Firmware for the most common wired NICs (all editions): Realtek r8169 /
+# r8152 (USB-C adapters) and Broadcom tg3. Without it these NICs either fail
+# or run degraded.
+BR2_PACKAGE_LINUX_FIRMWARE=y
+BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y
+BR2_PACKAGE_LINUX_FIRMWARE_RTL_815X=y
+BR2_PACKAGE_LINUX_FIRMWARE_BROADCOM_TIGON3=y
+
+# Installer tools (fusion-install-disk): mkfs.ext4 and partx.
+BR2_PACKAGE_E2FSPROGS=y
+BR2_PACKAGE_UTIL_LINUX_PARTX=y

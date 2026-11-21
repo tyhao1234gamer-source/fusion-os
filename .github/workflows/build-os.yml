@@ -150,43 +150,86 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Boot test in QEMU (UEFI firmware, SATA disk)
-        timeout-minutes: 25
+      - name: Kernel config check (did the kernel keep our driver options?)
+        id: kcheck
+        continue-on-error: true
         shell: bash
         run: |
-          sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf
-          ACCEL=""
-          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; ACCEL="-enable-kvm -cpu host"; fi
-          CODE=$(ls /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd 2>/dev/null | head -1)
-          VARS=$(ls /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd 2>/dev/null | head -1)
-          cp "$VARS" vars.fd
-          cp output/images/fusion-os.img boot-test.img
-          : > serial.log
-          qemu-system-x86_64 $ACCEL -machine q35 -m 4096 -smp 2 \
-            -drive if=pflash,format=raw,readonly=on,file="$CODE" \
-            -drive if=pflash,format=raw,file=vars.fd \
-            -drive file=boot-test.img,format=raw,if=none,id=d0 \
-            -device ide-hd,drive=d0,bus=ide.0 \
-            -nic user,model=e1000 -display none -serial file:serial.log &
-          QPID=$!
-          ok=0
-          for i in $(seq 1 180); do      # up to ~15 minutes
-            grep -q FUSION_BOOT_OK serial.log && { ok=1; break; }
-            kill -0 $QPID 2>/dev/null || break
-            sleep 5
-          done
-          kill $QPID 2>/dev/null || true
-          echo "================ serial console ================"
-          tr -d '\r' < serial.log | tail -n 150
-          echo "================================================"
-          if [ $ok = 1 ]; then echo "BOOT TEST PASSED"; else echo "BOOT TEST FAILED"; exit 1; fi
+          set -o pipefail
+          K=$(ls -d output/build/linux-[0-9]* | head -1)
+          F=fusion/os-source/br-external/board/fusion
+          frags="$F/linux-fragment.config"
+          [ "$EDITION" = base ] || frags="$frags $F/linux-gaming.config"
+          [ "$EDITION" = full ] && frags="$frags $F/linux-full.config"
+          mkdir -p reports && cp "$K/.config" reports/kernel.config
+          python3 fusion/os-source/validate-kernel-config.py "$K/.config" $frags | tee reports/kernel-config-check.txt
 
-      - name: Upload boot-test log
+      - name: Install QEMU + firmware (SeaBIOS, OVMF 64-bit and 32-bit)
+        run: |
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf mtools
+          sudo apt-get install -y --no-install-recommends ovmf-ia32 || echo "ovmf-ia32 not available"
+          ls /usr/share/OVMF/ || true
+          mkdir -p reports
+          chmod +x fusion/os-source/ci/boot-test.sh
+
+      - name: Boot test - UEFI 64-bit (SATA)
+        timeout-minutes: 25
+        run: |
+          cp output/images/fusion-os.img t-uefi.img
+          fusion/os-source/ci/boot-test.sh uefi t-uefi.img FUSION_BOOT_OK reports/serial-uefi.log
+          grep -q "firmware: UEFI 64-bit" reports/serial-uefi.log
+
+      - name: Boot test - legacy BIOS (SATA)
+        timeout-minutes: 25
+        run: |
+          cp output/images/fusion-os.img t-bios.img
+          fusion/os-source/ci/boot-test.sh bios t-bios.img FUSION_BOOT_OK reports/serial-bios.log
+          grep -q "firmware: BIOS" reports/serial-bios.log
+
+      - name: Boot test - UEFI 32-bit firmware, 64-bit CPU
+        id: uefi32
+        timeout-minutes: 25
+        continue-on-error: true
+        run: |
+          cp output/images/fusion-os.img t-uefi32.img
+          fusion/os-source/ci/boot-test.sh uefi32 t-uefi32.img FUSION_BOOT_OK reports/serial-uefi32.log
+          grep -q "firmware: UEFI 32-bit" reports/serial-uefi32.log
+
+      - name: Install test - install from the image onto a blank disk, then boot it
+        timeout-minutes: 50
+        run: |
+          # 1) the image, with the installer self-test switched on in both menus
+          cp output/images/fusion-os.img t-src.img
+          for cfg in ::/EFI/BOOT/grub.cfg ::/boot/grub/grub.cfg; do
+            mcopy -n -i t-src.img@@1048576 "$cfg" g.cfg
+            sed -i 's/ rootwait/ rootwait fusion.selftest=install:sdb/' g.cfg
+            mcopy -o -i t-src.img@@1048576 g.cfg "$cfg"
+          done
+          truncate -s 8G t-target.img
+          fusion/os-source/ci/boot-test.sh uefi t-src.img FUSION_INSTALL_OK reports/serial-install.log t-target.img
+          # 2) the freshly installed disk ALONE, on legacy BIOS
+          fusion/os-source/ci/boot-test.sh bios t-target.img FUSION_BOOT_OK reports/serial-installed-bios.log
+          src_uuid=$(grep -m1 '^root:' reports/serial-install.log | awk '{print $3}')
+          new_uuid=$(grep -m1 '^root:' reports/serial-installed-bios.log | awk '{print $3}')
+          echo "source root PARTUUID=$src_uuid installed root PARTUUID=$new_uuid"
+          [ -n "$new_uuid" ] && [ "$src_uuid" != "$new_uuid" ]
+
+      - name: Test summary
+        if: always()
+        run: |
+          {
+            echo "## Fusion OS ($EDITION) test results"
+            echo "- kernel config check: ${{ steps.kcheck.outcome }}"
+            echo "- UEFI 32-bit boot: ${{ steps.uefi32.outcome }}"
+            echo '```'; cat reports/kernel-config-check.txt 2>/dev/null | head -60; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test reports (serial logs, kernel .config)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: boot-test-${{ env.EDITION }}
-          path: serial.log
+          path: reports/
           if-no-files-found: ignore
           retention-days: 14
 
